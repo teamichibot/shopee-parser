@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Parser lokal untuk dump teks Shopee Seller Centre ke Excel. 100% client-side, data tidak meninggalkan browser.">
+  <title>Shopee Parser — Seller Centre ke Excel</title>
+  <style>
+    /* ----------------------------------------
+       CSS Variables — Dark Mode (default)
+       ---------------------------------------- */
+    :root {
+      --bg: #09090b;
+      --surface: #18181b;
+      --surface-raised: #1f1f23;
+      --border: #2e2e33;
+      --border-hover: #3f3f46;
+      --text: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent: #0d9488;
+      --accent-hover: #14b8a6;
+      --accent-muted: rgba(13, 148, 136, 0.12);
+      --accent-text: #f0fdfa;
+      --error: #ef4444;
+      --error-muted: rgba(239, 68, 68, 0.12);
+      --success: #22c55e;
+      --success-muted: rgba(34, 197, 94, 0.12);
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+      --radius: 8px;
+      --radius-sm: 6px;
+      --transition: 150ms ease;
+    }
+
+    /* ----------------------------------------
+       Light Mode
+       ---------------------------------------- */
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8f8f8;
+        --surface: #ffffff;
+        --surface-raised: #f4f4f5;
+        --border: #e4e4e7;
+        --border-hover: #d4d4d8;
+        --text: #18181b;
+        --text-secondary: #52525b;
+        --text-muted: #a1a1aa;
+        --accent: #0f766e;
+        --accent-hover: #0d9488;
+        --accent-muted: rgba(15, 118, 110, 0.08);
+        --error-muted: rgba(239, 68, 68, 0.08);
+        --success-muted: rgba(34, 197, 94, 0.08);
+      }
+    }
+
+    /* ----------------------------------------
+       Reset & Base
+       ---------------------------------------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ----------------------------------------
+       Typography
+       ---------------------------------------- */
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 0.9em;
+    }
+
+    /* ----------------------------------------
+       Layout
+       ---------------------------------------- */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header {
+      padding: 32px 0 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .header-badge {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      background: var(--accent-muted);
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    main {
+      padding: 28px 0 60px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    footer {
+      padding: 24px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    footer kbd {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    /* ----------------------------------------
+       Cards
+       ---------------------------------------- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* ----------------------------------------
+       Textarea & Drop Zone
+       ---------------------------------------- */
+    .drop-zone {
+      position: relative;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      transition: border-color var(--transition), background var(--transition);
+    }
+
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+    }
+
+    .drop-zone-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.95rem;
+      opacity: 0;
+      transition: opacity var(--transition);
+      z-index: 2;
+    }
+
+    .drop-zone.drag-over .drop-zone-hint {
+      opacity: 1;
+    }
+
+    .drop-zone.drag-over textarea {
+      opacity: 0.15;
+    }
+
+    #input-text {
+      width: 100%;
+      min-height: 340px;
+      max-height: 600px;
+      resize: vertical;
+      padding: 16px;
+      background: var(--surface-raised);
+      color: var(--text);
+      border: none;
+      border-radius: calc(var(--radius) - 2px);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.55;
+      outline: none;
+      transition: opacity var(--transition);
+    }
+
+    #input-text::placeholder {
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+    }
+
+    #input-text:focus {
+      box-shadow: inset 0 0 0 1px var(--border-hover);
+    }
+
+    /* ----------------------------------------
+       Input Toolbar
+       ---------------------------------------- */
+    .input-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding: 0 2px;
+    }
+
+    .product-count {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      transition: color var(--transition);
+    }
+
+    .product-count.has-data {
+      color: var(--accent);
+    }
+
+    /* ----------------------------------------
+       Buttons
+       ---------------------------------------- */
+    button {
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 9px 18px;
+      transition: all var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      line-height: 1;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-text);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      padding: 6px 10px;
+      font-size: 0.8rem;
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+      background: var(--surface-raised);
+    }
+
+    .btn-download {
+      background: var(--accent);
+      color: var(--accent-text);
+      padding: 12px 28px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .btn-download:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-download:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ----------------------------------------
+       Form Controls
+       ---------------------------------------- */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--surface-raised);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    input[type="number"].form-input {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+
+    .form-check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .form-check input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .form-check span {
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* ----------------------------------------
+       Config Section
+       ---------------------------------------- */
+    .config-section {
+      position: sticky;
+      top: 20px;
+    }
+
+    .config-actions {
+      margin-top: 20px;
+    }
+
+    .config-actions .btn-primary {
+      width: 100%;
+      padding: 11px;
+      font-size: 0.9rem;
+    }
+
+    /* ----------------------------------------
+       Accordion (Sample Data)
+       ---------------------------------------- */
+    .sample-details {
+      margin-top: 12px;
+    }
+
+    .sample-details summary {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      padding: 4px 0;
+      transition: color var(--transition);
+    }
+
+    .sample-details summary:hover {
+      color: var(--text-secondary);
+    }
+
+    .sample-details[open] summary {
+      margin-bottom: 8px;
+    }
+
+    .sample-code {
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+
+    /* ----------------------------------------
+       Output Section
+       ---------------------------------------- */
+    .output-section {
+      margin-top: 32px;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 350ms ease, transform 350ms ease;
+      pointer-events: none;
+      max-height: 0;
+      overflow: hidden;
+    }
+
+    .output-section.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .output-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    /* ----------------------------------------
+       Stats Grid
+       ---------------------------------------- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .stat-item {
+      background: var(--surface);
+      padding: 16px 18px;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stat-detail {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ----------------------------------------
+       Preview Table
+       ---------------------------------------- */
+    .preview-wrapper {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .preview-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-scroll {
+      overflow-x: auto;
+    }
+
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .preview-table th {
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .preview-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      vertical-align: top;
+    }
+
+    .preview-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .preview-table tr:nth-child(even) td {
+      background: var(--surface-raised);
+    }
+
+    .preview-table .col-nama {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+    }
+
+    .preview-table .col-rp,
+    .preview-table .col-num {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .preview-table .col-trend {
+      white-space: nowrap;
+    }
+
+    .trend-naik { color: var(--success); }
+    .trend-turun { color: var(--error); }
+    .trend-nodata { color: var(--text-muted); }
+
+    /* ----------------------------------------
+       Error / Messages
+       ---------------------------------------- */
+    .msg-box {
+      padding: 14px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .msg-box.visible {
+      display: block;
+    }
+
+    .msg-error {
+      background: var(--error-muted);
+      color: var(--error);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .msg-error strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    /* ----------------------------------------
+       Spinner
+       ---------------------------------------- */
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ----------------------------------------
+       Animations
+       ---------------------------------------- */
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ----------------------------------------
+       Responsive
+       ---------------------------------------- */
+    @media (max-width: 768px) {
+      html { font-size: 14px; }
+
+      .container { padding: 0 16px; }
+
+      header { padding: 24px 0 20px; }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .config-section {
+        position: static;
+      }
+
+      #input-text {
+        min-height: 220px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================================== -->
+  <!-- HEADER                                   -->
+  <!-- ======================================== -->
+  <header>
+    <div class="container">
+      <div class="header-inner">
+        <h1>Shopee Parser</h1>
+        <span class="header-badge">Client-Side</span>
+      </div>
+      <p class="subtitle">Parse dump teks Seller Centre ke Excel — data tidak meninggalkan browser.</p>
+    </div>
+  </header>
+
+  <!-- ======================================== -->
+  <!-- MAIN                                     -->
+  <!-- ======================================== -->
+  <main class="container">
+
+    <!-- Workspace: Input + Config -->
+    <div class="workspace">
+
+      <!-- Input Section -->
+      <section class="input-section">
+        <div class="drop-zone" id="drop-zone">
+          <span class="drop-zone-hint">Lepas file di sini</span>
+          <textarea
+            id="input-text"
+            placeholder="Copy-paste seluruh isi halaman Seller Centre Shopee ke sini...&#10;&#10;Atau drag & drop file .txt ke area ini."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <div class="input-toolbar">
+          <span class="product-count" id="product-count">0 produk terdeteksi</span>
+          <button class="btn-ghost" id="btn-clear" type="button">Bersihkan</button>
+        </div>
+
+        <details class="sample-details">
+          <summary>▸ Lihat contoh format input</summary>
+          <pre class="sample-code">Arduino UNO R3 ATMEGA328P ATMEGA 16U2 Compatible Board + Kabel USB
+26 Apr 2022
+Rp 124.000
+1
+Rp 25.302.462
+Rp 26.164.000
+204
+211
+↑ (3,4%)
+2,41%
+4,9 (2.992)
+1.804
+Rp 124.000
+10.000
+Rp 1.240.000.000
+1%
+1%
+Rp 1.240
+
+Sensor pH Meter Module PH-4502C | Probe Electrode untuk Arduino
+11 Jun 2022
+Rp 243.000
+1
+Rp 10.233.343
+Rp 26.244.000
+42
+108
+↑ (156,46%)
+0,95%
+4,8 (816)
+298
+Rp 243.000
+2.000
+Rp 486.000.000
+n/a
+5%
+Rp 12.150
+
+HANTEK DSO5102P DIGITAL OSCILLOSCOPE DSO 2 CHANNEL 100MHZ 1GSA/S
+27 Jan 2020
+Rp 6.025.500
+1
+Rp 4.760.085
+Rp 0
+0-1
+0
+No data
+0,7%
+5 (29)
+163
+Rp 6.025.500
+60
+Rp 361.530.000
+n/a
+5%
+Rp 301.275
+
+3D Printed Dudukan Traffic Light – Case Lampu Lalu Lintas Mini DIY Arduino
+Hari ini
+Rp 4.500
+1
+Rp 0
+Rp 0
+0
+0
+No data
+0%
+0 (0)
+0
+Rp 4.500
+0
+Rp 0
+n/a
+5%
+Rp 225</pre>
+        </details>
+
+        <!-- Error message -->
+        <div class="msg-box msg-error" id="msg-error">
+          <strong>Parsing gagal</strong>
+          <span id="msg-error-text"></span>
+        </div>
+      </section>
+
+      <!-- Config Section -->
+      <section class="config-section">
+        <div class="card">
+          <div class="card-label">Konfigurasi</div>
+
+          <div class="form-group">
+            <label class="form-label" for="nama-toko">Nama Toko</label>
+            <input type="text" class="form-input" id="nama-toko" placeholder="Opsional — tag tiap baris">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="top-n">Top N</label>
+              <input type="number" class="form-input" id="top-n" value="200" min="1" placeholder="Semua">
+              <p class="form-hint">Kosongkan untuk semua</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="min-terjual">Min Terjual 30hr</label>
+              <input type="number" class="form-input" id="min-terjual" value="0" min="0">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-check">
+              <input type="checkbox" id="drop-dead-stock" checked>
+              <span>Buang dead stock (Omset 30hr = 0)</span>
+            </label>
+          </div>
+
+          <div class="config-actions">
+            <button class="btn-primary" id="btn-proses" type="button" disabled>
+              ▶ Proses
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /workspace -->
+
+    <!-- Output Section (hidden until processed) -->
+    <section class="output-section" id="output-section">
+
+      <div class="output-header">
+        <span class="output-title">Hasil</span>
+        <button class="btn-download" id="btn-download" type="button" disabled>
+          📥 Download XLSX
+        </button>
+      </div>
+
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <div class="preview-wrapper">
+        <div class="preview-label" id="preview-label">Pratinjau</div>
+        <div class="preview-scroll">
+          <table class="preview-table" id="preview-table">
+            <thead><tr id="preview-thead"></tr></thead>
+            <tbody id="preview-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ======================================== -->
+  <!-- FOOTER                                   -->
+  <!-- ======================================== -->
+  <footer>
+    <div class="container">
+      Tekan <kbd>⌘</kbd><kbd>Enter</kbd> atau <kbd>Ctrl</kbd><kbd>Enter</kbd> untuk proses cepat
+    </div>
+  </footer>
+
+  <!-- xlsx-js-style (community fork with cell styling) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
+
+  <script>
+    /* ================================================================
+       1. KONSTANTA
+       ================================================================ */
+
+    const BULAN_ID = 'Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agt|Sep|Okt|Nov|Des';
+    const RE_TANGGAL = new RegExp(
+      '^(\\d{1,2}\\s+(' + BULAN_ID + ')\\s+\\d{4}|Hari ini)$'
+    );
+
+    const BULAN_MAP = {
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5,
+      Jul: 6, Agt: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11
+    };
+
+    // Urutan kolom output (tanpa Nama Toko — ditambahkan di depan jika ada)
+    const URUTAN_KOLOM = [
+      'Nama Produk', 'Ditambahkan', 'Harga', 'Stok',
+      'Omset 30 Hari', 'Terjual 30 Hari',
+      'Omset per Bulan (Est.)', 'Terjual per Bulan (Est.)',
+      'Trend Arah', 'Trend %',
+      '% Omset Toko', 'Rating', 'Jumlah Ulasan', 'Wishlist',
+      'Nilai Jual Stok', 'Total Terjual (Unit)', 'Total Terjual (Rp)',
+      'Est. Rate Komisi A', 'Est. Rate Komisi B', 'Est. Besar Komisi'
+    ];
+
+    // Number format per kolom Excel
+    const FORMAT_KOLOM = {
+      'Ditambahkan': 'dd-mmm-yyyy',
+      'Harga': '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-',
+      'Omset 30 Hari': '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-',
+      'Omset per Bulan (Est.)': '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-',
+      'Nilai Jual Stok': '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-',
+      'Total Terjual (Rp)': '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-',
+      'Est. Besar Komisi': '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-',
+      'Stok': '#,##0',
+      'Terjual 30 Hari': '#,##0',
+      'Terjual per Bulan (Est.)': '#,##0',
+      'Wishlist': '#,##0',
+      'Jumlah Ulasan': '#,##0',
+      'Total Terjual (Unit)': '#,##0',
+      'Rating': '0.0',
+      'Trend %': '0.0%;(0.0%);-',
+      '% Omset Toko': '0.00%',
+      'Est. Rate Komisi A': '0.0%',
+      'Est. Rate Komisi B': '0.0%',
+    };
+
+    // Lebar kolom (dalam character units)
+    const LEBAR_KOLOM = {
+      'Nama Toko': 22, 'Nama Produk': 60, 'Ditambahkan': 12,
+      'Harga': 14, 'Stok': 7, 'Omset 30 Hari': 18,
+      'Terjual 30 Hari': 12, 'Omset per Bulan (Est.)': 18,
+      'Terjual per Bulan (Est.)': 14, 'Trend Arah': 9,
+      'Trend %': 10, '% Omset Toko': 11, 'Rating': 7,
+      'Jumlah Ulasan': 11, 'Wishlist': 9, 'Nilai Jual Stok': 18,
+      'Total Terjual (Unit)': 14, 'Total Terjual (Rp)': 20,
+      'Est. Rate Komisi A': 11, 'Est. Rate Komisi B': 11,
+      'Est. Besar Komisi': 14,
+    };
+
+
+    /* ================================================================
+       2. PARSER — port dari parse_shopee.py
+       ================================================================ */
+
+    function bacaBarisBersih(text) {
+      return text.split('\n').map(b => b.trim()).filter(b => b.length > 0);
+    }
+
+    function cariIndeksTanggal(baris) {
+      const hasil = [];
+      for (let i = 0; i < baris.length; i++) {
+        if (RE_TANGGAL.test(baris[i])) hasil.push(i);
+      }
+      return hasil;
+    }
+
+    function parseProduk(baris) {
+      const hasil = [];
+      const indeks = cariIndeksTanggal(baris);
+
+      for (const idx of indeks) {
+        // Harus ada baris sebelumnya (nama produk) dan 16 baris setelahnya
+        if (idx === 0 || idx + 16 >= baris.length) continue;
+
+        const blok = [baris[idx - 1], baris[idx]].concat(baris.slice(idx + 1, idx + 17));
+        if (blok.length !== 18) continue;
+
+        // Validasi: harga harus diawali "Rp"
+        if (!blok[2].startsWith('Rp')) continue;
+
+        hasil.push({
+          'Nama Produk': blok[0],
+          'Ditambahkan': blok[1],
+          'Harga': blok[2],
+          'Stok': blok[3],
+          'Omset per Bulan (Est.)': blok[4],
+          'Omset 30 Hari': blok[5],
+          'Terjual per Bulan (Est.)': blok[6],
+          'Terjual 30 Hari': blok[7],
+          'Trend 30 Hari': blok[8],
+          '% Omset Toko': blok[9],
+          'Nilai Ulasan Raw': blok[10],
+          'Wishlist': blok[11],
+          'Nilai Jual Stok': blok[12],
+          'Total Terjual (Unit)': blok[13],
+          'Total Terjual (Rp)': blok[14],
+          'Est. Rate Komisi A': blok[15],
+          'Est. Rate Komisi B': blok[16],
+          'Est. Besar Komisi': blok[17],
+        });
+      }
+
+      return hasil;
+    }
+
+
+    /* ================================================================
+       3. KONVERSI TIPE DATA
+       ================================================================ */
+
+    /** 'Rp 1.240.000.000' → 1240000000. Non-parseable → null. */
+    function keAngkaRp(s) {
+      if (typeof s !== 'string') return null;
+      var cleaned = s.replace(/Rp/g, '').replace(/\s/g, '');
+      var m = cleaned.match(/-?[\d.]+/);
+      if (!m) return null;
+      var val = parseInt(m[0].replace(/\./g, ''), 10);
+      return isNaN(val) ? null : val;
+    }
+
+    /** '10.000' → 10000, '0-1' → 0, '0' → 0 */
+    function keInt(s) {
+      if (typeof s !== 'string') return null;
+      s = s.trim();
+      // "0-1" → ambil bagian sebelum dash (terkecil)
+      if (s.indexOf('-') > 0) {
+        s = s.split('-')[0];
+      }
+      s = s.replace(/\./g, '').replace(/,/g, '');
+      var val = parseInt(s, 10);
+      return isNaN(val) ? null : val;
+    }
+
+    /** '2,41%' → 0.0241, 'n/a' → null, '0%' → 0 */
+    function kePersen(s) {
+      if (typeof s !== 'string') return null;
+      s = s.trim();
+      var lower = s.toLowerCase();
+      if (lower === 'n/a' || lower === 'no data' || lower === '') return null;
+      var m = s.match(/-?[\d,.]+/);
+      if (!m) return null;
+      var val = parseFloat(m[0].replace(/\./g, '').replace(/,/g, '.'));
+      return isNaN(val) ? null : val / 100;
+    }
+
+    /** '26 Apr 2022' → Date, 'Hari ini' → today */
+    function keTanggal(s) {
+      if (typeof s !== 'string') return null;
+      s = s.trim();
+      if (s.toLowerCase() === 'hari ini') {
+        var t = new Date();
+        return new Date(t.getFullYear(), t.getMonth(), t.getDate(), 12, 0, 0);
+      }
+      var m = s.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+      if (!m) return null;
+      var bulan = BULAN_MAP[m[2]];
+      if (bulan === undefined) return null;
+      return new Date(parseInt(m[3], 10), bulan, parseInt(m[1], 10), 12, 0, 0);
+    }
+
+    /** '↑ (3,4%)' → {arah:'Naik', persen:0.034}; 'No data' → {arah:'No data', persen:null} */
+    function pisahTrend(s) {
+      if (typeof s !== 'string' || s.toLowerCase() === 'no data') {
+        return { arah: 'No data', persen: null };
+      }
+      var arah = s.indexOf('↑') !== -1 ? 'Naik' : (s.indexOf('↓') !== -1 ? 'Turun' : 'Stabil');
+      var m = s.match(/-?[\d,.]+/);
+      if (!m) return { arah: arah, persen: null };
+      var nilai = parseFloat(m[0].replace(/\./g, '').replace(/,/g, '.')) / 100;
+      if (isNaN(nilai)) return { arah: arah, persen: null };
+      return { arah: arah, persen: nilai };
+    }
+
+    /** '4,9 (2.992)' → {rating:4.9, jumlah:2992}; '0 (0)' → {rating:0, jumlah:0} */
+    function pisahRating(s) {
+      if (typeof s !== 'string') return { rating: null, jumlah: null };
+      var m = s.trim().match(/([\d,.]+)\s*\(([\d.]+)\)/);
+      if (!m) return { rating: null, jumlah: null };
+      var rating = parseFloat(m[1].replace(/,/g, '.'));
+      var jumlah = parseInt(m[2].replace(/\./g, ''), 10);
+      return {
+        rating: isNaN(rating) ? null : rating,
+        jumlah: isNaN(jumlah) ? null : jumlah
+      };
+    }
+
+
+    /* ================================================================
+       4. TRANSFORM
+       ================================================================ */
+
+    /**
+     * Konversi raw parsed rows ke typed objects.
+     * @param {Array<Object>} rows - hasil dari parseProduk()
+     * @param {string|null} namaToko
+     * @returns {Array<Object>}
+     */
+    function transformProduk(rows, namaToko) {
+      return rows.map(function(r) {
+        var trend = pisahTrend(r['Trend 30 Hari']);
+        var rating = pisahRating(r['Nilai Ulasan Raw']);
+        var obj = {
+          'Nama Produk': r['Nama Produk'],
+          'Ditambahkan': keTanggal(r['Ditambahkan']),
+          'Harga': keAngkaRp(r['Harga']),
+          'Stok': keInt(r['Stok']),
+          'Omset 30 Hari': keAngkaRp(r['Omset 30 Hari']),
+          'Terjual 30 Hari': keInt(r['Terjual 30 Hari']),
+          'Omset per Bulan (Est.)': keAngkaRp(r['Omset per Bulan (Est.)']),
+          'Terjual per Bulan (Est.)': keInt(r['Terjual per Bulan (Est.)']),
+          'Trend Arah': trend.arah,
+          'Trend %': trend.persen,
+          '% Omset Toko': kePersen(r['% Omset Toko']),
+          'Rating': rating.rating,
+          'Jumlah Ulasan': rating.jumlah,
+          'Wishlist': keInt(r['Wishlist']),
+          'Nilai Jual Stok': keAngkaRp(r['Nilai Jual Stok']),
+          'Total Terjual (Unit)': keInt(r['Total Terjual (Unit)']),
+          'Total Terjual (Rp)': keAngkaRp(r['Total Terjual (Rp)']),
+          'Est. Rate Komisi A': kePersen(r['Est. Rate Komisi A']),
+          'Est. Rate Komisi B': kePersen(r['Est. Rate Komisi B']),
+          'Est. Besar Komisi': keAngkaRp(r['Est. Besar Komisi']),
+        };
+        if (namaToko) obj['Nama Toko'] = namaToko;
+        return obj;
+      });
+    }
+
+
+    /* ================================================================
+       5. FILTER PIPELINE
+       ================================================================ */
+
+    /**
+     * @param {Array<Object>} data - transformed products
+     * @param {{dropDeadStock: boolean, minTerjual: number, topN: number|null}} config
+     * @returns {{data: Array<Object>, stats: Object}}
+     */
+    function filterProduk(data, config) {
+      var totalParsed = data.length;
+      var totalOmsetAll = data.reduce(function(s, p) { return s + (p['Omset 30 Hari'] || 0); }, 0);
+
+      var filtered = data.slice();
+
+      // 1. Drop dead stock
+      if (config.dropDeadStock) {
+        filtered = filtered.filter(function(p) { return (p['Omset 30 Hari'] || 0) > 0; });
+      }
+      var afterDeadStock = filtered.length;
+
+      // 2. Min terjual
+      if (config.minTerjual > 0) {
+        filtered = filtered.filter(function(p) { return (p['Terjual 30 Hari'] || 0) >= config.minTerjual; });
+      }
+      var afterMinTerjual = filtered.length;
+
+      // 3. Sort by Omset 30 Hari desc
+      filtered.sort(function(a, b) { return (b['Omset 30 Hari'] || 0) - (a['Omset 30 Hari'] || 0); });
+
+      // 4. Top N
+      if (config.topN && config.topN > 0 && filtered.length > config.topN) {
+        filtered = filtered.slice(0, config.topN);
+      }
+      var finalCount = filtered.length;
+      var totalOmsetFinal = filtered.reduce(function(s, p) { return s + (p['Omset 30 Hari'] || 0); }, 0);
+
+      return {
+        data: filtered,
+        stats: {
+          totalParsed: totalParsed,
+          totalOmsetAll: totalOmsetAll,
+          droppedDeadStock: totalParsed - afterDeadStock,
+          afterDeadStock: afterDeadStock,
+          droppedMinTerjual: afterDeadStock - afterMinTerjual,
+          afterMinTerjual: afterMinTerjual,
+          finalCount: finalCount,
+          totalOmsetFinal: totalOmsetFinal,
+          coverage: totalOmsetAll > 0 ? totalOmsetFinal / totalOmsetAll : 0,
+        }
+      };
+    }
+
+
+    /* ================================================================
+       6. EXCEL EXPORT (xlsx-js-style)
+       ================================================================ */
+
+    function exportExcel(data, namaToko) {
+      if (typeof XLSX === 'undefined') {
+        throw new Error('Library xlsx-js-style gagal dimuat. Periksa koneksi internet.');
+      }
+
+      // Determine column order
+      var kolom = namaToko ? ['Nama Toko'].concat(URUTAN_KOLOM) : URUTAN_KOLOM.slice();
+
+      // Build AOA (array of arrays)
+      var header = kolom;
+      var rows = data.map(function(p) {
+        return kolom.map(function(k) {
+          var v = p[k];
+          return v === undefined ? null : v;
+        });
+      });
+      var aoa = [header].concat(rows);
+
+      // Create worksheet
+      var ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
+      var range = XLSX.utils.decode_range(ws['!ref']);
+
+      // --- Header style ---
+      var headerStyle = {
+        fill: { fgColor: { rgb: '305496' } },
+        font: { bold: true, color: { rgb: 'FFFFFF' }, name: 'Arial', sz: 11 },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+      };
+      for (var c = range.s.c; c <= range.e.c; c++) {
+        var addr = XLSX.utils.encode_cell({ r: 0, c: c });
+        if (ws[addr]) ws[addr].s = headerStyle;
+      }
+
+      // --- Body styles ---
+      var bodyFont = { name: 'Arial', sz: 10 };
+
+      for (var r = 1; r <= range.e.r; r++) {
+        for (var ci = range.s.c; ci <= range.e.c; ci++) {
+          var cellAddr = XLSX.utils.encode_cell({ r: r, c: ci });
+          var cell = ws[cellAddr];
+          if (!cell) continue;
+
+          var colName = kolom[ci];
+          var fmt = FORMAT_KOLOM[colName];
+
+          // Build style object
+          var style = { font: { name: 'Arial', sz: 10 } };
+
+          // Nama Produk: wrap text, vertical top
+          if (colName === 'Nama Produk') {
+            style.alignment = { wrapText: true, vertical: 'top' };
+          }
+
+          cell.s = style;
+
+          // Number format
+          if (fmt) {
+            cell.z = fmt;
+          }
+
+          // Date cells: ensure type = 'd'
+          if (colName === 'Ditambahkan' && cell.v instanceof Date) {
+            cell.t = 'd';
+            cell.z = 'dd-mmm-yyyy';
+          }
+        }
+      }
+
+      // --- Column widths ---
+      ws['!cols'] = kolom.map(function(k) { return { wch: LEBAR_KOLOM[k] || 12 }; });
+
+      // --- Header row height ---
+      ws['!rows'] = [{ hpt: 32 }];
+
+      // --- Freeze panes ---
+      var xSplit = namaToko ? 1 : 0;
+      ws['!views'] = [{
+        state: 'frozen',
+        xSplit: xSplit,
+        ySplit: 1,
+        topLeftCell: xSplit > 0 ? 'B2' : 'A2',
+        activePane: 'bottomLeft'
+      }];
+
+      // --- Auto-filter ---
+      ws['!autofilter'] = { ref: ws['!ref'] };
+
+      // Build workbook
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Produk');
+
+      // Generate filename
+      var today = new Date();
+      var dateStr = today.getFullYear().toString() +
+        ('0' + (today.getMonth() + 1)).slice(-2) +
+        ('0' + today.getDate()).slice(-2);
+
+      var filename;
+      if (namaToko) {
+        var slug = namaToko.toLowerCase()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '');
+        filename = slug + '_' + dateStr + '.xlsx';
+      } else {
+        filename = 'produk_' + dateStr + '.xlsx';
+      }
+
+      XLSX.writeFile(wb, filename);
+      return filename;
+    }
+
+
+    /* ================================================================
+       7. UI HELPERS
+       ================================================================ */
+
+    function formatRupiah(n) {
+      if (n == null) return '—';
+      return 'Rp ' + n.toLocaleString('id-ID');
+    }
+
+    function formatAngka(n) {
+      if (n == null) return '—';
+      return n.toLocaleString('id-ID');
+    }
+
+    function formatPersen(n) {
+      if (n == null) return '—';
+      return (n * 100).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    }
+
+    function debounce(fn, ms) {
+      var timer;
+      return function() {
+        var ctx = this, args = arguments;
+        clearTimeout(timer);
+        timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+      };
+    }
+
+
+    /* ================================================================
+       8. UI EVENT HANDLERS
+       ================================================================ */
+
+    (function() {
+      // Cache DOM refs
+      var textarea     = document.getElementById('input-text');
+      var dropZone     = document.getElementById('drop-zone');
+      var productCount = document.getElementById('product-count');
+      var btnClear     = document.getElementById('btn-clear');
+      var btnProses    = document.getElementById('btn-proses');
+      var btnDownload  = document.getElementById('btn-download');
+      var outputSection = document.getElementById('output-section');
+      var statsGrid    = document.getElementById('stats-grid');
+      var previewLabel = document.getElementById('preview-label');
+      var previewThead = document.getElementById('preview-thead');
+      var previewTbody = document.getElementById('preview-tbody');
+      var msgError     = document.getElementById('msg-error');
+      var msgErrorText = document.getElementById('msg-error-text');
+
+      // State
+      var processedData = null;
+      var currentNamaToko = null;
+
+      // ---- Live product count (debounced 300ms) ----
+      var updateCount = debounce(function() {
+        var text = textarea.value.trim();
+        if (!text) {
+          productCount.textContent = '0 produk terdeteksi';
+          productCount.classList.remove('has-data');
+          btnProses.disabled = true;
+          return;
+        }
+        var baris = bacaBarisBersih(text);
+        var count = parseProduk(baris).length;
+        productCount.textContent = count + ' produk terdeteksi';
+        productCount.classList.toggle('has-data', count > 0);
+        btnProses.disabled = count === 0;
+      }, 300);
+
+      textarea.addEventListener('input', updateCount);
+
+      // ---- Clear button ----
+      btnClear.addEventListener('click', function() {
+        textarea.value = '';
+        updateCount();
+        hideOutput();
+        hideError();
+      });
+
+      // ---- Drag & Drop ----
+      var dragCounter = 0;
+
+      dropZone.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter++;
+        dropZone.classList.add('drag-over');
+      });
+
+      dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter--;
+        if (dragCounter <= 0) {
+          dragCounter = 0;
+          dropZone.classList.remove('drag-over');
+        }
+      });
+
+      dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter = 0;
+        dropZone.classList.remove('drag-over');
+
+        var files = e.dataTransfer.files;
+        if (files.length === 0) return;
+
+        var file = files[0];
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          textarea.value = ev.target.result;
+          textarea.dispatchEvent(new Event('input'));
+        };
+        reader.readAsText(file);
+      });
+
+      // ---- Keyboard shortcut: Cmd/Ctrl + Enter ----
+      document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          if (!btnProses.disabled) {
+            e.preventDefault();
+            btnProses.click();
+          }
+        }
+      });
+
+      // ---- Process button ----
+      btnProses.addEventListener('click', function() {
+        hideError();
+        btnProses.disabled = true;
+        var originalHTML = btnProses.innerHTML;
+        btnProses.innerHTML = '<span class="spinner"></span> Memproses\u2026';
+
+        // Double rAF to let the browser paint the spinner
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            try {
+              doProcess();
+            } catch (err) {
+              showError(err.message || 'Terjadi kesalahan saat memproses data.');
+              hideOutput();
+            } finally {
+              btnProses.innerHTML = originalHTML;
+              // Re-enable if textarea has content
+              btnProses.disabled = textarea.value.trim().length === 0;
+            }
+          });
+        });
+      });
+
+      function doProcess() {
+        var text = textarea.value.trim();
+        if (!text) throw new Error('Textarea kosong.');
+
+        // Parse
+        var baris = bacaBarisBersih(text);
+        var raw = parseProduk(baris);
+        if (raw.length === 0) {
+          throw new Error(
+            'Tidak ada produk yang terdeteksi (0 produk). ' +
+            'Pastikan format sesuai — copy langsung dari halaman Seller Centre Shopee ' +
+            '(tab "Produk Saya").'
+          );
+        }
+
+        // Config
+        var namaToko = document.getElementById('nama-toko').value.trim() || null;
+        var topNVal = document.getElementById('top-n').value;
+        var topN = topNVal ? parseInt(topNVal, 10) : null;
+        var dropDead = document.getElementById('drop-dead-stock').checked;
+        var minTerjual = parseInt(document.getElementById('min-terjual').value, 10) || 0;
+
+        // Transform
+        var transformed = transformProduk(raw, namaToko);
+
+        // Filter
+        var result = filterProduk(transformed, {
+          dropDeadStock: dropDead,
+          minTerjual: minTerjual,
+          topN: topN
+        });
+
+        processedData = result.data;
+        currentNamaToko = namaToko;
+
+        // Render stats
+        renderStats(result.stats, {
+          dropDead: dropDead,
+          minTerjual: minTerjual,
+          topN: topN
+        });
+
+        // Render preview
+        renderPreview(result.data);
+
+        // Show output
+        showOutput();
+        btnDownload.disabled = false;
+      }
+
+      // ---- Download button ----
+      btnDownload.addEventListener('click', function() {
+        if (!processedData || processedData.length === 0) return;
+        try {
+          var filename = exportExcel(processedData, currentNamaToko);
+          // Brief visual feedback
+          var orig = btnDownload.innerHTML;
+          btnDownload.innerHTML = '✓ ' + filename;
+          btnDownload.disabled = true;
+          setTimeout(function() {
+            btnDownload.innerHTML = orig;
+            btnDownload.disabled = false;
+          }, 2000);
+        } catch (err) {
+          showError('Gagal membuat file Excel: ' + err.message);
+        }
+      });
+
+      // ---- Render functions ----
+
+      function renderStats(stats, config) {
+        var items = [
+          { label: 'Diparsing', value: formatAngka(stats.totalParsed), detail: 'produk terdeteksi' },
+        ];
+
+        if (config.dropDead) {
+          items.push({
+            label: 'Dead stock',
+            value: '−' + stats.droppedDeadStock,
+            detail: 'omset 30hr = 0 dibuang'
+          });
+        }
+
+        if (config.minTerjual > 0) {
+          items.push({
+            label: 'Min terjual',
+            value: '−' + stats.droppedMinTerjual,
+            detail: 'di bawah ' + config.minTerjual + ' unit'
+          });
+        }
+
+        items.push(
+          { label: 'Hasil akhir', value: formatAngka(stats.finalCount), detail: config.topN ? 'top ' + config.topN : 'semua lolos filter' },
+          { label: 'Omset 30 Hari', value: formatRupiah(stats.totalOmsetFinal), detail: 'total tercover' },
+          { label: 'Coverage', value: (stats.coverage * 100).toFixed(1) + '%', detail: 'dari total omset' }
+        );
+
+        statsGrid.innerHTML = items.map(function(it) {
+          return '<div class="stat-item">' +
+            '<div class="stat-label">' + it.label + '</div>' +
+            '<div class="stat-value">' + it.value + '</div>' +
+            (it.detail ? '<div class="stat-detail">' + it.detail + '</div>' : '') +
+          '</div>';
+        }).join('');
+      }
+
+      function renderPreview(data) {
+        var previewCols = ['Nama Produk', 'Harga', 'Stok', 'Omset 30 Hari', 'Terjual 30 Hari', 'Rating', 'Trend Arah'];
+        var maxRows = Math.min(data.length, 10);
+
+        previewLabel.textContent = 'Pratinjau — ' + maxRows + ' dari ' + data.length + ' baris';
+
+        // Header
+        previewThead.innerHTML = previewCols.map(function(col) {
+          return '<th>' + col.replace('Trend Arah', 'Trend') + '</th>';
+        }).join('');
+
+        // Body
+        previewTbody.innerHTML = '';
+        for (var i = 0; i < maxRows; i++) {
+          var p = data[i];
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td class="col-nama" title="' + escapeHTML(p['Nama Produk'] || '') + '">' + escapeHTML(p['Nama Produk'] || '') + '</td>' +
+            '<td class="col-rp">' + formatRupiah(p['Harga']) + '</td>' +
+            '<td class="col-num">' + formatAngka(p['Stok']) + '</td>' +
+            '<td class="col-rp">' + formatRupiah(p['Omset 30 Hari']) + '</td>' +
+            '<td class="col-num">' + formatAngka(p['Terjual 30 Hari']) + '</td>' +
+            '<td class="col-num">' + (p['Rating'] != null ? p['Rating'].toFixed(1) : '—') + '</td>' +
+            '<td class="col-trend">' + renderTrend(p) + '</td>';
+          previewTbody.appendChild(tr);
+        }
+      }
+
+      function renderTrend(p) {
+        var arah = p['Trend Arah'];
+        var persen = p['Trend %'];
+        if (arah === 'No data') return '<span class="trend-nodata">No data</span>';
+        var cls = arah === 'Naik' ? 'trend-naik' : 'trend-turun';
+        var arrow = arah === 'Naik' ? '↑' : '↓';
+        var val = persen != null ? ' ' + formatPersen(Math.abs(persen)) : '';
+        return '<span class="' + cls + '">' + arrow + val + '</span>';
+      }
+
+      function escapeHTML(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+      }
+
+      // ---- Show/Hide helpers ----
+
+      function showOutput() {
+        outputSection.classList.add('visible');
+      }
+
+      function hideOutput() {
+        outputSection.classList.remove('visible');
+        btnDownload.disabled = true;
+        processedData = null;
+      }
+
+      function showError(msg) {
+        msgErrorText.textContent = msg;
+        msgError.classList.add('visible');
+      }
+
+      function hideError() {
+        msgError.classList.remove('visible');
+      }
+
+    })();
+  </script>
+</body>
+</html>
