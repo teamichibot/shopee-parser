@@ -527,7 +527,7 @@
       const batchIds = runIds.slice(i, i + BATCH);
       const { data, error } = await sb
         .from('competitor_products')
-        .select('parse_run_id, nama_produk, omset_30hari')
+        .select('parse_run_id, nama_produk, omset_30hari, harga')
         .in('parse_run_id', batchIds)
         .gt('omset_30hari', 0)
         .order('omset_30hari', { ascending: false });
@@ -566,7 +566,7 @@
     while(true) {
       const { data, error } = await sb
         .from('ichibot_products')
-        .select('id, sku, nama_produk, kategori, prioritas')
+        .select('id, sku, nama_produk, kategori, prioritas, harga_normal')
         .range(offset, offset + 999);
       if (error) throw error;
       if (!data || data.length === 0) break;
@@ -583,6 +583,7 @@
         total_omset: 0,
         sum_rank: 0,
         avg_rank: null,
+        min_harga_kompetitor: null,
       };
     });
 
@@ -603,6 +604,11 @@
           }
           ichibotMap[ichibotId].total_omset += (p.omset_30hari || 0);
           ichibotMap[ichibotId].sum_rank += (index + 1);
+          if (p.harga != null) {
+            if (ichibotMap[ichibotId].min_harga_kompetitor === null || p.harga < ichibotMap[ichibotId].min_harga_kompetitor) {
+              ichibotMap[ichibotId].min_harga_kompetitor = p.harga;
+            }
+          }
         }
       });
     });

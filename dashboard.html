@@ -104,6 +104,8 @@
                 <th>Nama Produk Ichibot</th>
                 <th>Kategori</th>
                 <th>Prioritas</th>
+                <th class="col-num">Harga Ichibot</th>
+                <th class="col-num">Harga Komp. Terendah</th>
                 <th class="col-num">Jml Toko</th>
                 <th class="col-num">Rata² Rank</th>
                 <th class="col-num">Omset Kompetitor (30hr)</th>
@@ -217,6 +219,22 @@
         return '<span class="badge-recommendation badge-rec-aman">➖ Aman</span>';
       }
 
+      function renderHargaKomp(p) {
+        if (p.min_harga_kompetitor == null) return '<span style="color:var(--text-muted)">—</span>';
+        const hargaIchi = p.harga_normal;
+        if (hargaIchi == null) return App.formatRupiah(p.min_harga_kompetitor);
+        const diff = p.min_harga_kompetitor - hargaIchi;
+        let diffHTML = '';
+        if (diff < 0) {
+          diffHTML = `<div style="font-size:0.65rem;color:var(--success);font-weight:600;margin-top:2px;">↓ ${App.formatRupiah(Math.abs(diff))} lebih murah</div>`;
+        } else if (diff > 0) {
+          diffHTML = `<div style="font-size:0.65rem;color:var(--error);font-weight:600;margin-top:2px;">↑ ${App.formatRupiah(diff)} lebih mahal</div>`;
+        } else {
+          diffHTML = `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;">Sama</div>`;
+        }
+        return App.formatRupiah(p.min_harga_kompetitor) + diffHTML;
+      }
+
       function renderTable(data) {
         if (data.length === 0) {
           els.tableBody.innerHTML = '';
@@ -234,6 +252,8 @@
               <td class="col-nama-prod" title="${App.escapeHTML(p.nama_produk || '')}">${App.escapeHTML(p.nama_produk || '—')}</td>
               <td>${App.escapeHTML(p.kategori || '—')}</td>
               <td>${p.prioritas === 'Ya' ? '<span class="badge badge-prioritas-ya">Ya</span>' : '<span class="badge badge-prioritas-tidak">Tidak</span>'}</td>
+              <td class="col-rp">${App.formatRupiah(p.harga_normal)}</td>
+              <td class="col-rp">${renderHargaKomp(p)}</td>
               <td class="col-num">${App.formatAngka(p.match_count)}</td>
               <td class="col-num">${rank}</td>
               <td class="col-rp" style="font-weight:600; color:var(--text);">${App.formatRupiah(p.total_omset)}</td>
@@ -258,7 +278,8 @@
         }
         
         const header = [
-          'Rekomendasi', 'SKU', 'Nama Produk Ichibot', 'Kategori', 'Prioritas', 
+          'Rekomendasi', 'SKU', 'Nama Produk Ichibot', 'Kategori', 'Prioritas',
+          'Harga Ichibot', 'Harga Kompetitor Terendah',
           'Jumlah Toko Match', 'Rata-rata Rank', 'Omset Kompetitor (30 Hari)'
         ];
 
@@ -268,6 +289,8 @@
           p.nama_produk || '',
           p.kategori || '',
           p.prioritas || '',
+          p.harga_normal != null ? p.harga_normal : null,
+          p.min_harga_kompetitor != null ? p.min_harga_kompetitor : null,
           p.match_count || 0,
           p.avg_rank != null ? Number(p.avg_rank.toFixed(1)) : null,
           p.total_omset || 0
@@ -285,14 +308,17 @@
           if (ws[addr]) ws[addr].s = headerStyle;
         }
         
+        const rpFmt = '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-';
         for (let r = 1; r <= rows.length; r++) {
-          const colOmset = XLSX.utils.encode_cell({ r, c: 7 });
-          if (ws[colOmset]) ws[colOmset].z = '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-';
+          [5, 6, 9].forEach(c => {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            if (ws[addr]) ws[addr].z = rpFmt;
+          });
         }
 
         ws['!cols'] = [
           { wch: 12 }, { wch: 15 }, { wch: 45 }, { wch: 18 }, { wch: 10 },
-          { wch: 18 }, { wch: 15 }, { wch: 25 }
+          { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 15 }, { wch: 25 }
         ];
 
         const wb = XLSX.utils.book_new();

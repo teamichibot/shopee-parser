@@ -484,10 +484,10 @@
               : '—';
 
             return `
-              <tr data-product-name="${App.escapeHTML(p.nama_produk || '')}">
+              <tr data-product-name="${App.escapeHTML(p.nama_produk || '')}" data-comp-price="${p.harga || 0}">
                 <td class="${rankClass}">${rank}</td>
                 <td class="col-nama-prod" title="${App.escapeHTML(p.nama_produk || '')}">${App.escapeHTML(p.nama_produk || '—')}</td>
-                <td class="col-rp">${App.formatRupiah(p.harga)}</td>
+                <td class="col-rp col-price">${renderPriceCell(p.harga, p.nama_produk, matchMap)}</td>
                 <td class="col-rp">${App.formatRupiah(p.omset_30hari)}</td>
                 <td class="col-num">${App.formatAngka(p.terjual_30hari)}</td>
                 <td>${trend}</td>
@@ -506,11 +506,50 @@
             });
           });
 
+          document.querySelectorAll('.btn-match-unmatch').forEach(btn => {
+            attachUnmatchHandler(btn, matchMap);
+          });
+
         } catch (err) {
           els.top50Loading.style.display = 'none';
           els.top50Empty.style.display = '';
           els.top50Empty.textContent = 'Gagal load: ' + err.message;
         }
+      }
+
+      function renderPriceCell(compPrice, namaProduk, matchMap) {
+        let html = `<div style="color: var(--text);">${App.formatRupiah(compPrice)}</div>`;
+        if (!namaProduk) return html;
+        const norm = String(namaProduk).trim().toLowerCase();
+        const m = matchMap[norm];
+
+        if (m && m.status === 'matched' && m.ichibot_products && m.ichibot_products.harga_normal != null) {
+          const ichiPrice = m.ichibot_products.harga_normal;
+          const diff = ichiPrice - compPrice;
+          
+          let diffText = '';
+          let diffColor = 'var(--text-muted)';
+          
+          if (diff < 0) {
+            diffText = `(↓ Lbh murah ${App.formatRupiah(Math.abs(diff))})`;
+            diffColor = 'var(--success)';
+          } else if (diff > 0) {
+            diffText = `(↑ Lbh mahal ${App.formatRupiah(Math.abs(diff))})`;
+            diffColor = 'var(--error)';
+          } else {
+            diffText = '(Harga sama)';
+          }
+
+          html += `
+            <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">
+              Ichibot: ${App.formatRupiah(ichiPrice)}
+            </div>
+            <div style="font-size: 0.65rem; color: ${diffColor}; font-weight: 600; white-space: nowrap; margin-top: 1px;">
+              ${diffText}
+            </div>
+          `;
+        }
+        return html;
       }
 
       function renderMatchCell(namaProduk, matchMap) {
@@ -529,7 +568,7 @@
             return `
               <div class="match-cell-content">
                 <span class="match-badge matched" title="${App.escapeHTML(m.ichibot_products.nama_produk)}">${App.escapeHTML(m.ichibot_products.sku || 'Matched')}</span>
-                <button class="btn-mini btn-match-trigger" type="button">Edit</button>
+                <button class="btn-mini btn-match-unmatch" type="button" style="color:var(--error);border-color:var(--error);">Unmatch</button>
               </div>`;
           }
         }
@@ -634,6 +673,37 @@
       /* ====================================================
          Match Modal Logic
          ==================================================== */
+
+      function attachUnmatchHandler(btn, matchMap) {
+        btn.addEventListener('click', async (e) => {
+          const row = e.target.closest('tr');
+          const pName = row.getAttribute('data-product-name');
+          if (!confirm('Hapus match untuk produk ini?')) return;
+          btn.disabled = true;
+          btn.textContent = '…';
+          try {
+            await App.deleteMatch(pName);
+            const norm = String(pName).trim().toLowerCase();
+            delete matchMap[norm];
+            const cellMatch = row.querySelector('.col-match-badge');
+            if (cellMatch) {
+              cellMatch.innerHTML = renderMatchCell(pName, matchMap);
+              const matchBtn = cellMatch.querySelector('.btn-match-trigger');
+              if (matchBtn) matchBtn.addEventListener('click', () => openMatchModal(pName, matchMap));
+            }
+            const cellPrice = row.querySelector('.col-price');
+            if (cellPrice) {
+              const compPrice = parseFloat(row.getAttribute('data-comp-price')) || 0;
+              cellPrice.innerHTML = renderPriceCell(compPrice, pName, matchMap);
+            }
+          } catch (err) {
+            alert('Gagal unmatch: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = 'Unmatch';
+          }
+        });
+      }
+
       let currentMatchCompName = '';
       let currentMatchMapRef = null;
       let selectedIchibotId = null;
@@ -793,17 +863,25 @@
           const norm = String(currentMatchCompName).trim().toLowerCase();
           currentMatchMapRef[norm] = result;
 
-          // Re-render only that cell in table without reloading
+          // Re-render cells in table without reloading
           const row = document.querySelector(`tr[data-product-name="${CSS.escape(currentMatchCompName)}"]`);
           if (row) {
-            const cell = row.querySelector('.col-match-badge');
-            if (cell) {
-              cell.innerHTML = renderMatchCell(currentMatchCompName, currentMatchMapRef);
+            const cellMatch = row.querySelector('.col-match-badge');
+            if (cellMatch) {
+              cellMatch.innerHTML = renderMatchCell(currentMatchCompName, currentMatchMapRef);
               // Re-attach listener
-              const btn = cell.querySelector('.btn-match-trigger');
+              const btn = cellMatch.querySelector('.btn-match-trigger');
               if (btn) {
                 btn.addEventListener('click', () => openMatchModal(currentMatchCompName, currentMatchMapRef));
               }
+              const unmatchBtn = cellMatch.querySelector('.btn-match-unmatch');
+              if (unmatchBtn) attachUnmatchHandler(unmatchBtn, currentMatchMapRef);
+            }
+            
+            const cellPrice = row.querySelector('.col-price');
+            if (cellPrice) {
+              const compPrice = parseFloat(row.getAttribute('data-comp-price')) || 0;
+              cellPrice.innerHTML = renderPriceCell(compPrice, currentMatchCompName, currentMatchMapRef);
             }
           }
           
