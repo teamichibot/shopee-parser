@@ -229,11 +229,11 @@
           if (ichiPrice != null) {
             const diff = ichiPrice - kompPrice;
             if (diff < 0) {
-              html += `<div style="font-size:0.65rem;color:var(--success);font-weight:600;margin-top:1px;white-space:nowrap;">↓ ${App.formatRupiah(Math.abs(diff))} lebih murah</div>`;
+              html += `<div style="font-size:0.65rem;color:var(--success);font-weight:600;margin-top:1px;white-space:nowrap;">Lebih murah ${App.formatHargaDiff(Math.abs(diff), kompPrice)} dari komp</div>`;
             } else if (diff > 0) {
-              html += `<div style="font-size:0.65rem;color:var(--error);font-weight:600;margin-top:1px;white-space:nowrap;">↑ ${App.formatRupiah(diff)} lebih mahal</div>`;
+              html += `<div style="font-size:0.65rem;color:var(--error);font-weight:600;margin-top:1px;white-space:nowrap;">Lebih mahal ${App.formatHargaDiff(diff, kompPrice)} dari komp</div>`;
             } else {
-              html += `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px;">Sama</div>`;
+              html += `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px;">Harga sama</div>`;
             }
           }
         }

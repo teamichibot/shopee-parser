@@ -531,13 +531,13 @@
           let diffColor = 'var(--text-muted)';
           
           if (diff < 0) {
-            diffText = `(↓ Lbh murah ${App.formatRupiah(Math.abs(diff))})`;
+            diffText = `Lebih murah ${App.formatHargaDiff(Math.abs(diff), compPrice)} dari komp`;
             diffColor = 'var(--success)';
           } else if (diff > 0) {
-            diffText = `(↑ Lbh mahal ${App.formatRupiah(Math.abs(diff))})`;
+            diffText = `Lebih mahal ${App.formatHargaDiff(diff, compPrice)} dari komp`;
             diffColor = 'var(--error)';
           } else {
-            diffText = '(Harga sama)';
+            diffText = 'Harga sama';
           }
 
           html += `

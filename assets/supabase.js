@@ -643,6 +643,15 @@
     return `${y}-${m}-${day}`;
   }
 
+  function formatHargaDiff(diffAbs, basePrice) {
+    const pct = basePrice > 0 ? Math.round(diffAbs / basePrice * 100) : 0;
+    let short;
+    if (diffAbs >= 1000000) short = (diffAbs / 1000000).toFixed(1).replace('.0', '') + 'jt';
+    else if (diffAbs >= 1000) short = Math.round(diffAbs / 1000) + 'rb';
+    else short = 'Rp' + diffAbs;
+    return `${short} (${pct}%)`;
+  }
+
   function formatRupiah(n) {
     if (n == null) return '—';
     return 'Rp ' + Number(n).toLocaleString('id-ID');
@@ -771,6 +780,7 @@
     // dashboard
     getDashboardSummary,
     // utils
+    formatHargaDiff,
     formatRupiah,
     formatAngka,
     formatTanggalRelatif,
