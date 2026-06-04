@@ -227,7 +227,7 @@
         if (kompPrice != null) {
           html += `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;white-space:nowrap;">Komp: ${App.formatRupiah(kompPrice)}</div>`;
           if (ichiPrice != null) {
-            const diff = kompPrice - ichiPrice;
+            const diff = ichiPrice - kompPrice;
             if (diff < 0) {
               html += `<div style="font-size:0.65rem;color:var(--success);font-weight:600;margin-top:1px;white-space:nowrap;">↓ ${App.formatRupiah(Math.abs(diff))} lebih murah</div>`;
             } else if (diff > 0) {
