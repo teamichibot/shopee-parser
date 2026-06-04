@@ -486,7 +486,7 @@
             return `
               <tr data-product-name="${App.escapeHTML(p.nama_produk || '')}">
                 <td class="${rankClass}">${rank}</td>
-                <td class="col-nama-prod">${App.escapeHTML(p.nama_produk || '—')}</td>
+                <td class="col-nama-prod" title="${App.escapeHTML(p.nama_produk || '')}">${App.escapeHTML(p.nama_produk || '—')}</td>
                 <td class="col-rp">${App.formatRupiah(p.harga)}</td>
                 <td class="col-rp">${App.formatRupiah(p.omset_30hari)}</td>
                 <td class="col-num">${App.formatAngka(p.terjual_30hari)}</td>
@@ -750,7 +750,7 @@
             <div class="suggest-item ${isSelected ? 'selected' : ''}" data-id="${it.id}">
               ${thumb}
               <div class="suggest-info">
-                <div class="suggest-name">${App.escapeHTML(it.nama_produk)}</div>
+                <div class="suggest-name" title="${App.escapeHTML(it.nama_produk)}">${App.escapeHTML(it.nama_produk)}</div>
                 <div class="suggest-meta">
                   <span>${App.escapeHTML(it.sku)}</span>
                   <span>·</span>

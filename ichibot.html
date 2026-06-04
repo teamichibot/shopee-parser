@@ -392,11 +392,11 @@
           return `
             <tr>
               <td class="col-thumb">${thumb}</td>
-              <td class="col-nama-prod">
+              <td class="col-nama-prod" title="${App.escapeHTML(r.nama_produk || '')}">
                 <div style="color: var(--text); margin-bottom: 2px;">${App.escapeHTML(r.nama_produk || '—')}</div>
                 ${r.external_id ? `<div style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted);">ID: ${App.escapeHTML(r.external_id)}</div>` : ''}
               </td>
-              <td class="col-sku">${App.escapeHTML(r.sku || '—')}</td>
+              <td class="col-sku" title="${App.escapeHTML(r.sku || '')}">${App.escapeHTML(r.sku || '—')}</td>
               <td>${App.escapeHTML(r.kategori || '—')}</td>
               <td>${prioritasBadge}</td>
               <td class="col-num">${App.formatAngka(r.stok)}</td>

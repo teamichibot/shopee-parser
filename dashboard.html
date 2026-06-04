@@ -231,7 +231,7 @@
             <tr>
               <td>${getBadgeHTML(p.recommendation)}</td>
               <td class="col-sku">${App.escapeHTML(p.sku || '—')}</td>
-              <td class="col-nama-prod">${App.escapeHTML(p.nama_produk || '—')}</td>
+              <td class="col-nama-prod" title="${App.escapeHTML(p.nama_produk || '')}">${App.escapeHTML(p.nama_produk || '—')}</td>
               <td>${App.escapeHTML(p.kategori || '—')}</td>
               <td>${p.prioritas === 'Ya' ? '<span class="badge badge-prioritas-ya">Ya</span>' : '<span class="badge badge-prioritas-tidak">Tidak</span>'}</td>
               <td class="col-num">${App.formatAngka(p.match_count)}</td>
