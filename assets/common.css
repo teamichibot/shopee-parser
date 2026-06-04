@@ -1030,6 +1030,269 @@ input[type='number'].form-input {
 }
 
 /* ============================================================
+   Page-specific: Ichibot Products
+   ============================================================ */
+
+.ichibot-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.ichibot-toolbar .form-input,
+.ichibot-toolbar select.form-input {
+  padding: 7px 11px;
+  font-size: 0.82rem;
+}
+
+.ichibot-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.ichibot-table-wrapper {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.ichibot-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.ichibot-table th {
+  text-align: left;
+  padding: 11px 14px;
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.ichibot-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.ichibot-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ichibot-table tr:hover td {
+  background: var(--surface-raised);
+}
+
+.ichibot-table .col-thumb {
+  width: 48px;
+  padding: 6px 8px;
+}
+
+.ichibot-table .col-thumb img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface-raised);
+  display: block;
+}
+
+.ichibot-table .col-thumb .thumb-placeholder {
+  width: 40px;
+  height: 40px;
+  background: var(--surface-raised);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.6rem;
+}
+
+.ichibot-table .col-nama-prod {
+  color: var(--text);
+  max-width: 320px;
+  min-width: 200px;
+}
+
+.ichibot-table .col-sku {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.ichibot-table .col-num,
+.ichibot-table .col-rp {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ichibot-table .col-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+.badge-prioritas-ya {
+  background: var(--success-muted);
+  color: var(--success);
+}
+.badge-prioritas-tidak {
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+.badge-momentum-up {
+  background: var(--success-muted);
+  color: var(--success);
+}
+.badge-momentum-down {
+  background: var(--error-muted);
+  color: var(--error);
+}
+.badge-momentum-flat {
+  background: var(--warn-muted);
+  color: var(--warn);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  font-family: var(--font-mono);
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.pagination-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.pagination-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+.pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Import preview */
+.import-summary {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin: 14px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.import-summary-item {
+  text-align: center;
+}
+
+.import-summary-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.import-summary-value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.import-summary-value.warn {
+  color: var(--warn);
+}
+
+.import-modal {
+  max-width: 640px;
+}
+
+.import-drop {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 32px 20px;
+  text-align: center;
+  background: var(--surface-raised);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.import-drop:hover,
+.import-drop.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+.import-drop-label {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.import-drop-hint {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 768px) {
@@ -1062,5 +1325,15 @@ input[type='number'].form-input {
   }
   .form-row {
     grid-template-columns: 1fr;
+  }
+  .ichibot-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .ichibot-table {
+    font-size: 0.78rem;
+  }
+  .ichibot-table th,
+  .ichibot-table td {
+    padding: 8px 10px;
   }
 }

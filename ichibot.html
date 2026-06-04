@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Catalog produk Ichibot Store — Ichibot Tracker">
+  <title>Produk Ichibot — Ichibot Tracker</title>
+  <link rel="stylesheet" href="assets/common.css">
+</head>
+<body>
+
+  <div id="app-nav"></div>
+
+  <header class="page-header">
+    <div class="container">
+      <div class="page-header-inner">
+        <h1>Produk Ichibot</h1>
+        <span class="page-badge" id="badge-total">—</span>
+      </div>
+      <p class="subtitle">Catalog produk Ichibot Store untuk matching dengan produk kompetitor.</p>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Stats -->
+    <div class="ichibot-stats-row" id="stats-row">
+      <div class="stat-item">
+        <div class="stat-label">Total Produk</div>
+        <div class="stat-value mono" id="stat-total">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Prioritas: Ya</div>
+        <div class="stat-value mono" id="stat-prioritas-ya">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Prioritas: Tidak</div>
+        <div class="stat-value mono" id="stat-prioritas-tidak">—</div>
+      </div>
+    </div>
+
+    <div class="msg-box msg-error" id="msg-error">
+      <strong>Error</strong>
+      <span id="msg-error-text"></span>
+    </div>
+
+    <div class="msg-box msg-success" id="msg-success">
+      <span id="msg-success-text"></span>
+    </div>
+
+    <!-- Toolbar: search, filters, import -->
+    <div class="ichibot-toolbar">
+      <input type="search" class="form-input" id="search-input" placeholder="Cari nama produk, SKU, atau ID…" autocomplete="off">
+      <select class="form-input" id="filter-prioritas">
+        <option value="">Semua prioritas</option>
+        <option value="Ya">Prioritas: Ya</option>
+        <option value="Tidak">Prioritas: Tidak</option>
+      </select>
+      <select class="form-input" id="filter-kategori">
+        <option value="">Semua kategori</option>
+      </select>
+      <button class="btn-primary" id="btn-import" type="button">📥 Import XLSX</button>
+    </div>
+
+    <!-- Table -->
+    <div class="ichibot-table-wrapper">
+      <div id="table-loading" style="padding: 40px; text-align: center; color: var(--text-muted);">
+        <span class="spinner"></span>
+        <span style="margin-left: 10px;">Memuat…</span>
+      </div>
+
+      <div id="table-empty" class="empty-state" style="display: none; border: none; margin: 0;">
+        <h2>Belum ada produk</h2>
+        <p id="empty-msg">Import XLSX catalog Ichibot untuk mulai.</p>
+        <button class="btn-primary" id="btn-import-empty" type="button">📥 Import XLSX Pertama</button>
+      </div>
+
+      <div id="table-container" style="display: none;">
+        <div style="overflow-x: auto;">
+          <table class="ichibot-table">
+            <thead>
+              <tr>
+                <th class="col-thumb"></th>
+                <th>Nama Produk</th>
+                <th>SKU</th>
+                <th>Kategori</th>
+                <th>Prioritas</th>
+                <th class="col-num">Stok</th>
+                <th class="col-num">Harga Normal</th>
+                <th class="col-num">Vel. 30d</th>
+                <th>Momentum</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination">
+          <div class="pagination-info" id="pagination-info">—</div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" id="btn-prev" type="button">← Prev</button>
+            <button class="pagination-btn" id="btn-next" type="button">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ======================================== -->
+  <!-- IMPORT MODAL                             -->
+  <!-- ======================================== -->
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal import-modal">
+      <div class="modal-header">
+        <div class="modal-title">Import Catalog Ichibot</div>
+        <button class="modal-close" id="import-modal-close" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="subtitle" style="margin-bottom: 16px;">
+          Drag-drop atau pilih file XLSX. Row dengan kolom <code>ID</code> yang sama akan ditimpa (upsert).
+        </p>
+
+        <div class="msg-box msg-error" id="import-error">
+          <span id="import-error-text"></span>
+        </div>
+
+        <!-- Step 1: Drop -->
+        <div id="import-step-drop">
+          <div class="import-drop" id="import-drop">
+            <div class="import-drop-label">Drop file XLSX di sini</div>
+            <div class="import-drop-hint">atau <a href="#" id="import-file-link">klik untuk pilih file</a></div>
+            <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none;">
+          </div>
+        </div>
+
+        <!-- Step 2: Preview -->
+        <div id="import-step-preview" style="display: none;">
+          <div class="import-summary" id="import-summary"></div>
+
+          <div style="margin-bottom: 12px;">
+            <div class="card-label">Preview 5 baris pertama</div>
+            <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+              <table class="ichibot-table" id="preview-table" style="font-size: 0.72rem;">
+                <thead><tr id="preview-thead"></tr></thead>
+                <tbody id="preview-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <details>
+            <summary style="font-size: 0.78rem; color: var(--text-muted); cursor: pointer; padding: 4px 0;">
+              ▸ Lihat mapping kolom yang terdeteksi
+            </summary>
+            <div id="mapping-info" style="margin-top: 10px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); background: var(--surface-raised); padding: 12px; border-radius: var(--radius-sm); white-space: pre-wrap;"></div>
+          </details>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="import-cancel" type="button">Batal</button>
+        <button class="btn-secondary" id="import-back" type="button" style="display:none;">← Pilih file lain</button>
+        <button class="btn-primary" id="import-submit" type="button" disabled>Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase.js"></script>
+
+  <script>
+    /* =========================================================
+       Auth gate
+       ========================================================= */
+    (async function () {
+      const user = await App.requireAuth();
+      if (!user) return;
+
+      App.renderNav('ichibot');
+
+      /* =========================================================
+         Constants: XLSX header → DB column mapping
+         ========================================================= */
+      const COLUMN_MAP = {
+        'id': 'external_id',
+        'nama barang': 'nama_produk',
+        'nama produk': 'nama_produk',
+        'prioritas': 'prioritas',
+        'sku': 'sku',
+        'gudang': 'gudang',
+        'stock': 'stok',
+        'stok': 'stok',
+        'harga normal': 'harga_normal',
+        'harga diskon': 'harga_diskon',
+        'kategori': 'kategori',
+        'velocity 90d': 'velocity_90d',
+        'velocity 30d': 'velocity_30d',
+        'momentum': 'momentum',
+        'days of supply': 'days_of_supply',
+        'link gambar': 'link_gambar_1',
+        'link gambar 1': 'link_gambar_1',
+      };
+
+      const INT_COLS = new Set(['stok', 'harga_normal', 'harga_diskon']);
+      const FLOAT_COLS = new Set(['velocity_30d', 'velocity_90d', 'days_of_supply']);
+
+      /* =========================================================
+         State
+         ========================================================= */
+      const PAGE_SIZE = 50;
+      let state = {
+        page: 0,
+        search: '',
+        prioritas: '',
+        kategori: '',
+        totalRows: 0,
+      };
+      let importState = null; // { rows: [...], mapped: [...], headers: [...] }
+
+      /* =========================================================
+         DOM refs
+         ========================================================= */
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        badgeTotal: $('badge-total'),
+        statTotal: $('stat-total'),
+        statYa: $('stat-prioritas-ya'),
+        statTidak: $('stat-prioritas-tidak'),
+        msgError: $('msg-error'),
+        msgErrorText: $('msg-error-text'),
+        msgSuccess: $('msg-success'),
+        msgSuccessText: $('msg-success-text'),
+        search: $('search-input'),
+        filterPrioritas: $('filter-prioritas'),
+        filterKategori: $('filter-kategori'),
+        btnImport: $('btn-import'),
+        btnImportEmpty: $('btn-import-empty'),
+        tableLoading: $('table-loading'),
+        tableEmpty: $('table-empty'),
+        emptyMsg: $('empty-msg'),
+        tableContainer: $('table-container'),
+        tableBody: $('table-body'),
+        pagination: $('pagination'),
+        paginationInfo: $('pagination-info'),
+        btnPrev: $('btn-prev'),
+        btnNext: $('btn-next'),
+        // Import modal
+        modal: $('import-modal'),
+        modalClose: $('import-modal-close'),
+        importError: $('import-error'),
+        importErrorText: $('import-error-text'),
+        stepDrop: $('import-step-drop'),
+        stepPreview: $('import-step-preview'),
+        importDrop: $('import-drop'),
+        importFileInput: $('import-file-input'),
+        importFileLink: $('import-file-link'),
+        importSummary: $('import-summary'),
+        previewThead: $('preview-thead'),
+        previewTbody: $('preview-tbody'),
+        mappingInfo: $('mapping-info'),
+        importCancel: $('import-cancel'),
+        importBack: $('import-back'),
+        importSubmit: $('import-submit'),
+      };
+
+      /* =========================================================
+         Helpers
+         ========================================================= */
+      function showError(msg) {
+        els.msgErrorText.textContent = msg;
+        els.msgError.classList.add('visible');
+      }
+      function hideError() { els.msgError.classList.remove('visible'); }
+      function showSuccess(msg) {
+        els.msgSuccessText.textContent = msg;
+        els.msgSuccess.classList.add('visible');
+        setTimeout(() => els.msgSuccess.classList.remove('visible'), 5000);
+      }
+      function showImportError(msg) {
+        els.importErrorText.textContent = msg;
+        els.importError.classList.add('visible');
+      }
+      function hideImportError() { els.importError.classList.remove('visible'); }
+
+      function parseIntLoose(val) {
+        if (val == null || val === '') return null;
+        if (typeof val === 'number') return Math.round(val);
+        const s = String(val).trim().replace(/[.,]/g, '');
+        const n = parseInt(s, 10);
+        return isNaN(n) ? null : n;
+      }
+      function parseFloatLoose(val) {
+        if (val == null || val === '') return null;
+        if (typeof val === 'number') return val;
+        const s = String(val).trim().replace(/\./g, '').replace(',', '.');
+        const n = parseFloat(s);
+        return isNaN(n) ? null : n;
+      }
+
+      function debounce(fn, ms) {
+        let t;
+        return function () {
+          clearTimeout(t);
+          const args = arguments;
+          t = setTimeout(() => fn.apply(this, args), ms);
+        };
+      }
+
+      /* =========================================================
+         Stats + Filter dropdown
+         ========================================================= */
+      async function refreshStats() {
+        try {
+          const stats = await App.getIchibotStats();
+          els.statTotal.textContent = App.formatAngka(stats.total);
+          els.statYa.textContent = App.formatAngka(stats.prioritasYa);
+          els.statTidak.textContent = App.formatAngka(stats.prioritasTidak);
+          els.badgeTotal.textContent = App.formatAngka(stats.total) + ' produk';
+        } catch (err) {
+          showError('Gagal load stats: ' + err.message);
+        }
+      }
+
+      async function refreshKategoriDropdown() {
+        try {
+          const list = await App.getIchibotKategoriList();
+          const cur = els.filterKategori.value;
+          els.filterKategori.innerHTML =
+            '<option value="">Semua kategori</option>' +
+            list
+              .map((k) => `<option value="${App.escapeHTML(k)}">${App.escapeHTML(k)}</option>`)
+              .join('');
+          if (cur) els.filterKategori.value = cur;
+        } catch (err) {
+          // Non-fatal, abaikan
+        }
+      }
+
+      /* =========================================================
+         Table render + pagination
+         ========================================================= */
+      async function loadTable() {
+        hideError();
+        els.tableLoading.style.display = '';
+        els.tableEmpty.style.display = 'none';
+        els.tableContainer.style.display = 'none';
+
+        try {
+          const { data, total } = await App.listIchibotProducts({
+            search: state.search,
+            prioritas: state.prioritas,
+            kategori: state.kategori,
+            limit: PAGE_SIZE,
+            offset: state.page * PAGE_SIZE,
+          });
+
+          state.totalRows = total;
+          els.tableLoading.style.display = 'none';
+
+          if (total === 0) {
+            const noFilters = !state.search && !state.prioritas && !state.kategori;
+            els.tableEmpty.style.display = '';
+            els.emptyMsg.textContent = noFilters
+              ? 'Import XLSX catalog Ichibot untuk mulai.'
+              : 'Tidak ada produk yang cocok dengan filter. Coba ganti filter.';
+            return;
+          }
+
+          els.tableContainer.style.display = '';
+          renderTableBody(data);
+          renderPagination();
+        } catch (err) {
+          els.tableLoading.style.display = 'none';
+          showError('Gagal load table: ' + err.message);
+        }
+      }
+
+      function renderTableBody(rows) {
+        els.tableBody.innerHTML = rows.map((r) => {
+          const thumb = r.link_gambar_1
+            ? `<img src="${App.escapeHTML(r.link_gambar_1)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb-placeholder',textContent:'no img'}))">`
+            : `<div class="thumb-placeholder">no img</div>`;
+
+          const prioritasBadge = r.prioritas
+            ? `<span class="badge badge-prioritas-${r.prioritas === 'Ya' ? 'ya' : 'tidak'}">${App.escapeHTML(r.prioritas)}</span>`
+            : '<span class="badge">—</span>';
+
+          const momentumBadge = r.momentum
+            ? `<span class="badge badge-momentum-${r.momentum.toLowerCase()}">${App.escapeHTML(r.momentum)}</span>`
+            : '<span class="badge">—</span>';
+
+          return `
+            <tr>
+              <td class="col-thumb">${thumb}</td>
+              <td class="col-nama-prod">
+                <div style="color: var(--text); margin-bottom: 2px;">${App.escapeHTML(r.nama_produk || '—')}</div>
+                ${r.external_id ? `<div style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted);">ID: ${App.escapeHTML(r.external_id)}</div>` : ''}
+              </td>
+              <td class="col-sku">${App.escapeHTML(r.sku || '—')}</td>
+              <td>${App.escapeHTML(r.kategori || '—')}</td>
+              <td>${prioritasBadge}</td>
+              <td class="col-num">${App.formatAngka(r.stok)}</td>
+              <td class="col-rp">${App.formatRupiah(r.harga_normal)}</td>
+              <td class="col-num">${r.velocity_30d != null ? r.velocity_30d.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
+              <td>${momentumBadge}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function renderPagination() {
+        const start = state.page * PAGE_SIZE + 1;
+        const end = Math.min(start + PAGE_SIZE - 1, state.totalRows);
+        els.paginationInfo.textContent = `${start}–${end} dari ${App.formatAngka(state.totalRows)}`;
+        els.btnPrev.disabled = state.page === 0;
+        els.btnNext.disabled = end >= state.totalRows;
+      }
+
+      /* =========================================================
+         Filter event handlers
+         ========================================================= */
+      const debouncedSearch = debounce(() => {
+        state.search = els.search.value.trim();
+        state.page = 0;
+        loadTable();
+      }, 250);
+
+      els.search.addEventListener('input', debouncedSearch);
+      els.filterPrioritas.addEventListener('change', () => {
+        state.prioritas = els.filterPrioritas.value;
+        state.page = 0;
+        loadTable();
+      });
+      els.filterKategori.addEventListener('change', () => {
+        state.kategori = els.filterKategori.value;
+        state.page = 0;
+        loadTable();
+      });
+
+      els.btnPrev.addEventListener('click', () => {
+        if (state.page > 0) {
+          state.page--;
+          loadTable();
+        }
+      });
+      els.btnNext.addEventListener('click', () => {
+        if ((state.page + 1) * PAGE_SIZE < state.totalRows) {
+          state.page++;
+          loadTable();
+        }
+      });
+
+      /* =========================================================
+         Import: open modal + parse XLSX
+         ========================================================= */
+      els.btnImport.addEventListener('click', openImportModal);
+      els.btnImportEmpty.addEventListener('click', openImportModal);
+      els.modalClose.addEventListener('click', closeImportModal);
+      els.importCancel.addEventListener('click', closeImportModal);
+      els.modal.addEventListener('click', (e) => {
+        if (e.target === els.modal) closeImportModal();
+      });
+
+      function openImportModal() {
+        resetImportModal();
+        els.modal.classList.add('visible');
+      }
+      function closeImportModal() {
+        els.modal.classList.remove('visible');
+      }
+      function resetImportModal() {
+        importState = null;
+        hideImportError();
+        els.stepDrop.style.display = '';
+        els.stepPreview.style.display = 'none';
+        els.importBack.style.display = 'none';
+        els.importSubmit.disabled = true;
+        els.importSubmit.innerHTML = 'Import';
+        els.importFileInput.value = '';
+      }
+
+      els.importFileLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        els.importFileInput.click();
+      });
+      els.importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) handleImportFile(file);
+      });
+
+      // Drag-drop
+      ['dragenter', 'dragover'].forEach((ev) => {
+        els.importDrop.addEventListener(ev, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          els.importDrop.classList.add('drag-over');
+        });
+      });
+      ['dragleave', 'drop'].forEach((ev) => {
+        els.importDrop.addEventListener(ev, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          els.importDrop.classList.remove('drag-over');
+        });
+      });
+      els.importDrop.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if (file) handleImportFile(file);
+      });
+      els.importDrop.addEventListener('click', () => els.importFileInput.click());
+
+      els.importBack.addEventListener('click', resetImportModal);
+
+      async function handleImportFile(file) {
+        hideImportError();
+        if (!/\.xlsx?$/i.test(file.name)) {
+          showImportError('File harus berformat .xlsx atau .xls.');
+          return;
+        }
+
+        try {
+          const rows = await parseXlsx(file);
+          if (rows.length === 0) {
+            showImportError('File tidak berisi data (sheet pertama kosong).');
+            return;
+          }
+
+          const headers = Object.keys(rows[0]);
+          const mappingReport = buildMappingReport(headers);
+          const mapped = mapRows(rows);
+          const stats = analyzeMapped(mapped);
+
+          if (stats.valid === 0) {
+            showImportError(
+              'Tidak ada baris valid (semua row missing "Nama Barang"). ' +
+              'Pastikan kolom Nama Barang ada di file.'
+            );
+            return;
+          }
+
+          importState = { rows, mapped: mapped.filter((m) => m.nama_produk), stats, mappingReport };
+
+          renderImportPreview();
+        } catch (err) {
+          showImportError('Gagal parse file: ' + err.message);
+        }
+      }
+
+      function parseXlsx(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: false });
+              const sheet = wb.Sheets[wb.SheetNames[0]];
+              const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+              resolve(rows);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = () => reject(new Error('File tidak bisa dibaca.'));
+          reader.readAsBinaryString(file);
+        });
+      }
+
+      function normalizeHeader(h) {
+        return String(h || '').trim().toLowerCase();
+      }
+
+      function buildMappingReport(headers) {
+        const lines = ['HEADER XLSX → KOLOM DATABASE\n'];
+        for (const h of headers) {
+          const norm = normalizeHeader(h);
+          const dbCol = COLUMN_MAP[norm];
+          if (dbCol) {
+            lines.push(`  ✓ ${h}  →  ${dbCol}`);
+          } else {
+            lines.push(`  ✗ ${h}  →  (diabaikan)`);
+          }
+        }
+        return lines.join('\n');
+      }
+
+      function mapRows(rows) {
+        return rows.map((r) => {
+          const out = {};
+          for (const key in r) {
+            const norm = normalizeHeader(key);
+            const dbCol = COLUMN_MAP[norm];
+            if (!dbCol) continue;
+
+            let val = r[key];
+            if (val == null || val === '') continue;
+
+            if (dbCol === 'external_id') {
+              out[dbCol] = String(val).trim();
+            } else if (INT_COLS.has(dbCol)) {
+              out[dbCol] = parseIntLoose(val);
+            } else if (FLOAT_COLS.has(dbCol)) {
+              out[dbCol] = parseFloatLoose(val);
+            } else {
+              out[dbCol] = String(val).trim();
+            }
+          }
+          return out;
+        });
+      }
+
+      function analyzeMapped(mapped) {
+        let valid = 0;
+        let skipped = 0;
+        let withExtId = 0;
+        let withoutExtId = 0;
+        for (const m of mapped) {
+          if (!m.nama_produk) {
+            skipped++;
+            continue;
+          }
+          valid++;
+          if (m.external_id) withExtId++;
+          else withoutExtId++;
+        }
+        return { total: mapped.length, valid, skipped, withExtId, withoutExtId };
+      }
+
+      function renderImportPreview() {
+        const { rows, mapped, stats, mappingReport } = importState;
+
+        els.stepDrop.style.display = 'none';
+        els.stepPreview.style.display = '';
+        els.importBack.style.display = '';
+        els.importSubmit.disabled = false;
+
+        els.importSummary.innerHTML = `
+          <div class="import-summary-item">
+            <div class="import-summary-label">Total Baris</div>
+            <div class="import-summary-value">${App.formatAngka(stats.total)}</div>
+          </div>
+          <div class="import-summary-item">
+            <div class="import-summary-label">Valid</div>
+            <div class="import-summary-value">${App.formatAngka(stats.valid)}</div>
+          </div>
+          <div class="import-summary-item">
+            <div class="import-summary-label">Akan upsert</div>
+            <div class="import-summary-value">${App.formatAngka(stats.withExtId)}</div>
+          </div>
+          <div class="import-summary-item">
+            <div class="import-summary-label">Insert baru</div>
+            <div class="import-summary-value ${stats.withoutExtId > 0 ? 'warn' : ''}">${App.formatAngka(stats.withoutExtId)}</div>
+          </div>
+          ${stats.skipped > 0 ? `
+          <div class="import-summary-item">
+            <div class="import-summary-label">Dilewati</div>
+            <div class="import-summary-value warn">${App.formatAngka(stats.skipped)}</div>
+          </div>` : ''}
+        `;
+
+        // Preview 5 baris
+        const previewCols = ['external_id', 'nama_produk', 'sku', 'kategori', 'prioritas', 'stok', 'harga_normal'];
+        els.previewThead.innerHTML = previewCols.map((c) => `<th>${c}</th>`).join('');
+        els.previewTbody.innerHTML = mapped.slice(0, 5).map((m) => {
+          return '<tr>' + previewCols.map((c) => {
+            const v = m[c];
+            return `<td>${v == null ? '<span style="color:var(--text-muted);">—</span>' : App.escapeHTML(String(v))}</td>`;
+          }).join('') + '</tr>';
+        }).join('');
+
+        els.mappingInfo.textContent = mappingReport;
+      }
+
+      els.importSubmit.addEventListener('click', async () => {
+        if (!importState || !importState.mapped) return;
+        hideImportError();
+
+        const originalText = els.importSubmit.innerHTML;
+        els.importSubmit.disabled = true;
+        els.importSubmit.innerHTML = '<span class="spinner"></span> Importing…';
+
+        try {
+          const result = await App.importIchibotProducts(importState.mapped);
+          closeImportModal();
+          showSuccess(
+            'Import sukses: ' +
+            App.formatAngka(result.upserted) + ' upserted, ' +
+            App.formatAngka(result.inserted) + ' inserted (total ' +
+            App.formatAngka(result.total) + ').'
+          );
+          await Promise.all([refreshStats(), refreshKategoriDropdown(), loadTable()]);
+        } catch (err) {
+          showImportError('Gagal import: ' + (err.message || 'Unknown error'));
+          els.importSubmit.disabled = false;
+          els.importSubmit.innerHTML = originalText;
+        }
+      });
+
+      /* =========================================================
+         Initial load
+         ========================================================= */
+      await Promise.all([refreshStats(), refreshKategoriDropdown(), loadTable()]);
+    })();
+  </script>
+</body>
+</html>

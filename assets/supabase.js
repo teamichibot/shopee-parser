@@ -208,6 +208,127 @@
     return { run, inserted };
   }
 
+  /* ---------------- Ichibot Products ---------------- */
+
+  /**
+   * Bulk upsert produk Ichibot (key: external_id).
+   * Row tanpa external_id akan di-insert (tidak upsert).
+   *
+   * @param {Array<Object>} products - sudah ter-map ke schema DB
+   * @returns {Promise<{inserted: number, updated: number, skipped: number}>}
+   */
+  async function importIchibotProducts(products) {
+    if (!Array.isArray(products) || products.length === 0) {
+      throw new Error('Tidak ada produk untuk diimport');
+    }
+
+    // Split: yang punya external_id → upsert; yang tidak → insert biasa
+    const withExtId = products.filter((p) => p.external_id);
+    const withoutExtId = products.filter((p) => !p.external_id);
+
+    let upsertedCount = 0;
+    let insertedCount = 0;
+
+    // 1) Upsert (batched)
+    if (withExtId.length > 0) {
+      const BATCH = 500;
+      for (let i = 0; i < withExtId.length; i += BATCH) {
+        const batch = withExtId.slice(i, i + BATCH);
+        const { error } = await sb
+          .from('ichibot_products')
+          .upsert(batch, { onConflict: 'external_id' });
+        if (error) {
+          throw new Error(
+            'Gagal upsert batch ' + (i / BATCH + 1) + ': ' + error.message
+          );
+        }
+        upsertedCount += batch.length;
+      }
+    }
+
+    // 2) Insert untuk yang tanpa external_id
+    if (withoutExtId.length > 0) {
+      const BATCH = 500;
+      for (let i = 0; i < withoutExtId.length; i += BATCH) {
+        const batch = withoutExtId.slice(i, i + BATCH);
+        const { error } = await sb.from('ichibot_products').insert(batch);
+        if (error) {
+          throw new Error(
+            'Gagal insert batch (no external_id) ' + (i / BATCH + 1) + ': ' + error.message
+          );
+        }
+        insertedCount += batch.length;
+      }
+    }
+
+    return {
+      upserted: upsertedCount,
+      inserted: insertedCount,
+      total: upsertedCount + insertedCount,
+    };
+  }
+
+  /**
+   * List ichibot_products dengan filter + pagination.
+   *
+   * @param {{search?: string, prioritas?: string, kategori?: string, limit?: number, offset?: number}} opts
+   * @returns {Promise<{data: Array, total: number}>}
+   */
+  async function listIchibotProducts(opts) {
+    opts = opts || {};
+    const limit = opts.limit || 50;
+    const offset = opts.offset || 0;
+
+    let q = sb
+      .from('ichibot_products')
+      .select('*', { count: 'exact' })
+      .order('nama_produk', { ascending: true });
+
+    if (opts.search && opts.search.trim()) {
+      const term = opts.search.trim().replace(/[%_]/g, '\\$&');
+      q = q.or(
+        `nama_produk.ilike.%${term}%,sku.ilike.%${term}%,external_id.ilike.%${term}%`
+      );
+    }
+    if (opts.prioritas) q = q.eq('prioritas', opts.prioritas);
+    if (opts.kategori) q = q.eq('kategori', opts.kategori);
+
+    q = q.range(offset, offset + limit - 1);
+
+    const { data, count, error } = await q;
+    if (error) throw error;
+    return { data: data || [], total: count || 0 };
+  }
+
+  /** Ringkasan stats untuk top bar dashboard. */
+  async function getIchibotStats() {
+    const [{ count: total }, { count: prioritasYa }] = await Promise.all([
+      sb.from('ichibot_products').select('*', { count: 'exact', head: true }),
+      sb
+        .from('ichibot_products')
+        .select('*', { count: 'exact', head: true })
+        .eq('prioritas', 'Ya'),
+    ]);
+    return {
+      total: total || 0,
+      prioritasYa: prioritasYa || 0,
+      prioritasTidak: (total || 0) - (prioritasYa || 0),
+    };
+  }
+
+  /** Distinct kategori untuk dropdown filter. */
+  async function getIchibotKategoriList() {
+    // Pakai trick: select kolom unik via RPC kalau ada, atau ambil semua row sebatas batas
+    const { data, error } = await sb
+      .from('ichibot_products')
+      .select('kategori')
+      .not('kategori', 'is', null)
+      .limit(5000); // 2600 produk muat
+    if (error) throw error;
+    const set = new Set((data || []).map((r) => r.kategori).filter(Boolean));
+    return Array.from(set).sort();
+  }
+
   /* ---------------- Utils ---------------- */
 
   function dateToISODate(d) {
@@ -268,6 +389,7 @@
     const links = [
       { id: 'parser', href: 'index.html', label: 'Parser' },
       { id: 'stores', href: 'stores.html', label: 'Toko Kompetitor', auth: true },
+      { id: 'ichibot', href: 'ichibot.html', label: 'Produk Ichibot', auth: true },
     ];
 
     const visible = links.filter((l) => !l.auth || user);
@@ -325,6 +447,11 @@
     findStoreByName,
     // products
     saveParseResult,
+    // ichibot
+    importIchibotProducts,
+    listIchibotProducts,
+    getIchibotStats,
+    getIchibotKategoriList,
     // utils
     formatRupiah,
     formatAngka,
