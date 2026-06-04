@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dashboard Prioritas — Ichibot Tracker">
+  <title>Dashboard Prioritas — Ichibot Tracker</title>
+  <link rel="stylesheet" href="assets/common.css">
+  <style>
+    .badge-recommendation {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .badge-rec-naikkan { background: var(--error-muted); color: var(--error); }
+    .badge-rec-tinjau { background: var(--warn-muted); color: var(--warn); }
+    .badge-rec-ontrack { background: var(--success-muted); color: var(--success); }
+    .badge-rec-aman { background: var(--surface-raised); color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <div id="app-nav"></div>
+
+  <main class="container" style="padding-top: 28px;">
+    
+    <div class="page-header" style="border-bottom:none; padding-bottom:0;">
+      <div class="page-header-inner">
+        <h1>Dashboard Prioritas</h1>
+        <span class="page-badge">Analysis</span>
+      </div>
+      <p class="subtitle">Evaluasi prioritas produk Ichibot berdasarkan performa kompetitor.</p>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" style="text-align: center; padding: 60px; color: var(--text-muted);">
+      <span class="spinner"></span>
+      <span style="margin-left: 10px;">Mengagregasi data dari seluruh toko...</span>
+    </div>
+
+    <!-- Error -->
+    <div id="error-state" class="msg-box msg-error" style="display: none;">
+      <strong>Gagal memuat data</strong>
+      <span id="error-text"></span>
+    </div>
+
+    <!-- Content (hidden until loaded) -->
+    <div id="content" style="display: none; margin-top: 24px;">
+      
+      <!-- Stats Grid -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">🔥 Naikkan Prioritas</div>
+          <div class="stat-value" id="stat-naikkan">0</div>
+          <div class="stat-detail">Laris di kompetitor, tapi prioritas 'Tidak'</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">⚠️ Tinjau Ulang</div>
+          <div class="stat-value" id="stat-tinjau">0</div>
+          <div class="stat-detail">Prioritas 'Ya', tapi kompetitor tidak jual</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">✅ On-track</div>
+          <div class="stat-value" id="stat-ontrack">0</div>
+          <div class="stat-detail">Prioritas 'Ya' dan kompetitor jual</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Total Omset Agregat</div>
+          <div class="stat-value" id="stat-omset">Rp 0</div>
+          <div class="stat-detail">Dari produk yang sudah di-match</div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="ichibot-toolbar" style="grid-template-columns: minmax(220px, 1fr) auto auto;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <input type="text" class="form-input" id="search-input" placeholder="Cari nama atau SKU..." autocomplete="off">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <select class="form-input" id="filter-rec">
+            <option value="">Semua Rekomendasi</option>
+            <option value="Naikkan">🔥 Naikkan</option>
+            <option value="Tinjau">⚠️ Tinjau</option>
+            <option value="On-track">✅ On-track</option>
+            <option value="Aman">➖ Aman</option>
+          </select>
+        </div>
+        <button id="btn-export" type="button" class="btn-primary">📥 Export XLSX</button>
+      </div>
+
+      <!-- Table -->
+      <div class="ichibot-table-wrapper">
+        <div style="overflow-x: auto;">
+          <table class="ichibot-table">
+            <thead>
+              <tr>
+                <th>Rekomendasi</th>
+                <th>SKU</th>
+                <th>Nama Produk Ichibot</th>
+                <th>Kategori</th>
+                <th>Prioritas</th>
+                <th class="col-num">Jml Toko</th>
+                <th class="col-num">Rata² Rank</th>
+                <th class="col-num">Omset Kompetitor (30hr)</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Empty state -->
+      <div id="empty-state" class="empty-state" style="display: none; border-top: none; border-radius: 0 0 var(--radius) var(--radius);">
+        <p>Tidak ada produk yang cocok dengan filter pencarian.</p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase.js"></script>
+  
+  <script>
+    (async function () {
+      const user = await App.requireAuth();
+      if (!user) return;
+
+      App.renderNav('dashboard');
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        loading: $('loading'),
+        errorState: $('error-state'),
+        errorText: $('error-text'),
+        content: $('content'),
+        statNaikkan: $('stat-naikkan'),
+        statTinjau: $('stat-tinjau'),
+        statOntrack: $('stat-ontrack'),
+        statOmset: $('stat-omset'),
+        searchInput: $('search-input'),
+        filterRec: $('filter-rec'),
+        btnExport: $('btn-export'),
+        tableBody: $('table-body'),
+        emptyState: $('empty-state'),
+      };
+
+      let rawData = [];
+      let filteredData = [];
+
+      try {
+        rawData = await App.getDashboardSummary();
+        
+        // Sort by total_omset DESC initially
+        rawData.sort((a, b) => b.total_omset - a.total_omset);
+        
+        updateStats(rawData);
+        applyFilters();
+
+        els.loading.style.display = 'none';
+        els.content.style.display = '';
+      } catch (err) {
+        els.loading.style.display = 'none';
+        els.errorText.textContent = err.message;
+        els.errorState.style.display = 'block';
+      }
+
+      function updateStats(data) {
+        let cntNaikkan = 0;
+        let cntTinjau = 0;
+        let cntOntrack = 0;
+        let totalOmset = 0;
+
+        data.forEach(p => {
+          if (p.recommendation === 'Naikkan') cntNaikkan++;
+          if (p.recommendation === 'Tinjau') cntTinjau++;
+          if (p.recommendation === 'On-track') cntOntrack++;
+          totalOmset += p.total_omset;
+        });
+
+        els.statNaikkan.textContent = App.formatAngka(cntNaikkan);
+        els.statTinjau.textContent = App.formatAngka(cntTinjau);
+        els.statOntrack.textContent = App.formatAngka(cntOntrack);
+        els.statOmset.textContent = App.formatRupiah(totalOmset);
+      }
+
+      function applyFilters() {
+        const term = els.searchInput.value.toLowerCase().trim();
+        const recFilter = els.filterRec.value;
+
+        filteredData = rawData.filter(p => {
+          if (recFilter && p.recommendation !== recFilter) return false;
+          if (term) {
+            const name = (p.nama_produk || '').toLowerCase();
+            const sku = (p.sku || '').toLowerCase();
+            if (!name.includes(term) && !sku.includes(term)) return false;
+          }
+          return true;
+        });
+
+        renderTable(filteredData);
+      }
+
+      function getBadgeHTML(rec) {
+        if (rec === 'Naikkan') return '<span class="badge-recommendation badge-rec-naikkan">🔥 Naikkan</span>';
+        if (rec === 'Tinjau') return '<span class="badge-recommendation badge-rec-tinjau">⚠️ Tinjau</span>';
+        if (rec === 'On-track') return '<span class="badge-recommendation badge-rec-ontrack">✅ On-track</span>';
+        return '<span class="badge-recommendation badge-rec-aman">➖ Aman</span>';
+      }
+
+      function renderTable(data) {
+        if (data.length === 0) {
+          els.tableBody.innerHTML = '';
+          els.emptyState.style.display = 'block';
+          return;
+        }
+
+        els.emptyState.style.display = 'none';
+        els.tableBody.innerHTML = data.map(p => {
+          const rank = p.avg_rank != null ? p.avg_rank.toFixed(1).replace('.', ',') : '—';
+          return `
+            <tr>
+              <td>${getBadgeHTML(p.recommendation)}</td>
+              <td class="col-sku">${App.escapeHTML(p.sku || '—')}</td>
+              <td class="col-nama-prod">${App.escapeHTML(p.nama_produk || '—')}</td>
+              <td>${App.escapeHTML(p.kategori || '—')}</td>
+              <td>${p.prioritas === 'Ya' ? '<span class="badge badge-prioritas-ya">Ya</span>' : '<span class="badge badge-prioritas-tidak">Tidak</span>'}</td>
+              <td class="col-num">${App.formatAngka(p.match_count)}</td>
+              <td class="col-num">${rank}</td>
+              <td class="col-rp" style="font-weight:600; color:var(--text);">${App.formatRupiah(p.total_omset)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Events
+      let searchTimeout;
+      els.searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(applyFilters, 300);
+      });
+
+      els.filterRec.addEventListener('change', applyFilters);
+
+      els.btnExport.addEventListener('click', () => {
+        if (typeof XLSX === 'undefined') {
+          alert('Library xlsx-js-style gagal dimuat.');
+          return;
+        }
+        
+        const header = [
+          'Rekomendasi', 'SKU', 'Nama Produk Ichibot', 'Kategori', 'Prioritas', 
+          'Jumlah Toko Match', 'Rata-rata Rank', 'Omset Kompetitor (30 Hari)'
+        ];
+
+        const rows = filteredData.map(p => [
+          p.recommendation,
+          p.sku || '',
+          p.nama_produk || '',
+          p.kategori || '',
+          p.prioritas || '',
+          p.match_count || 0,
+          p.avg_rank != null ? Number(p.avg_rank.toFixed(1)) : null,
+          p.total_omset || 0
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+        
+        // Styles
+        const headerStyle = {
+          fill: { fgColor: { rgb: '305496' } },
+          font: { bold: true, color: { rgb: 'FFFFFF' } }
+        };
+        for (let c = 0; c < header.length; c++) {
+          const addr = XLSX.utils.encode_cell({ r: 0, c: c });
+          if (ws[addr]) ws[addr].s = headerStyle;
+        }
+        
+        for (let r = 1; r <= rows.length; r++) {
+          const colOmset = XLSX.utils.encode_cell({ r, c: 7 });
+          if (ws[colOmset]) ws[colOmset].z = '_-"Rp" * #,##0_-;-"Rp" * #,##0_-;_-"Rp" * "-"_-';
+        }
+
+        ws['!cols'] = [
+          { wch: 12 }, { wch: 15 }, { wch: 45 }, { wch: 18 }, { wch: 10 },
+          { wch: 18 }, { wch: 15 }, { wch: 25 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Dashboard Prioritas');
+        
+        const d = new Date();
+        const dateStr = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+        XLSX.writeFile(wb, 'Dashboard_Prioritas_' + dateStr + '.xlsx');
+      });
+
+    })();
+  </script>
+</body>
+</html>

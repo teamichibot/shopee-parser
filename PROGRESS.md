@@ -14,8 +14,8 @@ Web app untuk track produk kompetitor Shopee + mapping ke catalog Ichibot Store 
 | **Fase 1** | Auth + simpan parsing kompetitor ke DB | ✅ **Selesai** |
 | **Fase 3** | Import & browse catalog Ichibot (XLSX) | ✅ **Selesai** |
 | **Fase 2** | Dashboard per toko (Top 50 + history) | ✅ **Selesai** |
-| **Fase 4** | Matching UI (kompetitor ↔ Ichibot) | 🚧 **Next** |
-| **Fase 5** | Dashboard prioritas Ichibot (summary) | ⏳ Pending |
+| **Fase 4** | Matching UI (kompetitor ↔ Ichibot) | ✅ **Selesai** |
+| **Fase 5** | Dashboard prioritas Ichibot (summary) | ✅ **Selesai** |
 
 > Note: Fase 3 dikerjakan duluan supaya begitu Fase 2 selesai (Top 50 view), tombol "Match" langsung berfungsi tanpa nunggu Fase 3 import dulu.
 

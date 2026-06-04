@@ -508,6 +508,122 @@
     return data || [];
   }
 
+  /* ---------------- Dashboard Summary (Fase 5) ---------------- */
+
+  /**
+   * Agregasi data untuk Dashboard Prioritas (Client-side).
+   * Menghitung match count, total omset, rata-rata rank untuk tiap produk Ichibot.
+   */
+  async function getDashboardSummary() {
+    // 1. Ambil semua toko & parse run terbaru
+    const stores = await listStoresWithLatest();
+    const runIds = stores.map(s => s.latest_parse?.id).filter(Boolean);
+    if (runIds.length === 0) return [];
+
+    // 2. Ambil top 50 produk kompetitor dari setiap parse run
+    let compProducts = [];
+    const BATCH = 10;
+    for (let i = 0; i < runIds.length; i += BATCH) {
+      const batchIds = runIds.slice(i, i + BATCH);
+      const { data, error } = await sb
+        .from('competitor_products')
+        .select('parse_run_id, nama_produk, omset_30hari')
+        .in('parse_run_id', batchIds)
+        .gt('omset_30hari', 0)
+        .order('omset_30hari', { ascending: false });
+      if (error) throw error;
+      compProducts = compProducts.concat(data || []);
+    }
+
+    // Process top 50 per store to get rank
+    const productsByRun = {};
+    compProducts.forEach(p => {
+      if (!productsByRun[p.parse_run_id]) productsByRun[p.parse_run_id] = [];
+      productsByRun[p.parse_run_id].push(p);
+    });
+
+    const top50ByRun = {};
+    Object.keys(productsByRun).forEach(runId => {
+      top50ByRun[runId] = productsByRun[runId].slice(0, 50);
+    });
+
+    // 3. Ambil semua product_matches yang matched
+    const { data: matches, error: matchErr } = await sb
+      .from('product_matches')
+      .select('nama_produk_normalized, ichibot_product_id')
+      .eq('status', 'matched')
+      .not('ichibot_product_id', 'is', null);
+    if (matchErr) throw matchErr;
+
+    const mapNameToIchibot = {};
+    (matches || []).forEach(m => {
+      mapNameToIchibot[m.nama_produk_normalized] = m.ichibot_product_id;
+    });
+
+    // 4. Ambil semua ichibot_products
+    let ichibotProducts = [];
+    let offset = 0;
+    while(true) {
+      const { data, error } = await sb
+        .from('ichibot_products')
+        .select('id, sku, nama_produk, kategori, prioritas')
+        .range(offset, offset + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      ichibotProducts = ichibotProducts.concat(data);
+      offset += 1000;
+      if (data.length < 1000) break;
+    }
+
+    const ichibotMap = {};
+    ichibotProducts.forEach(ip => {
+      ichibotMap[ip.id] = {
+        ...ip,
+        match_count: 0,
+        total_omset: 0,
+        sum_rank: 0,
+        avg_rank: null,
+      };
+    });
+
+    // 5. Agregasi
+    Object.keys(top50ByRun).forEach(runId => {
+      const top50 = top50ByRun[runId];
+      // Supaya unique per toko (kalau ada produk sama di 1 toko)
+      const matchedIchibotThisRun = new Set();
+      
+      top50.forEach((p, index) => {
+        const norm = normalizeName(p.nama_produk);
+        const ichibotId = mapNameToIchibot[norm];
+        if (ichibotId && ichibotMap[ichibotId]) {
+          // Hanya tambah match_count 1x per toko meskipun ada multiple kompetitor product map ke sama
+          if (!matchedIchibotThisRun.has(ichibotId)) {
+            ichibotMap[ichibotId].match_count += 1;
+            matchedIchibotThisRun.add(ichibotId);
+          }
+          ichibotMap[ichibotId].total_omset += (p.omset_30hari || 0);
+          ichibotMap[ichibotId].sum_rank += (index + 1);
+        }
+      });
+    });
+
+    // 6. Hitung rata-rata rank & Rekomendasi
+    return Object.values(ichibotMap).map(ip => {
+      if (ip.match_count > 0) {
+        ip.avg_rank = ip.sum_rank / ip.match_count;
+      }
+      
+      let badge = '';
+      if (ip.prioritas === 'Tidak' && ip.match_count > 0) badge = 'Naikkan';
+      else if (ip.prioritas === 'Ya' && ip.match_count === 0) badge = 'Tinjau';
+      else if (ip.prioritas === 'Ya' && ip.match_count > 0) badge = 'On-track';
+      else badge = 'Aman';
+
+      ip.recommendation = badge;
+      return ip;
+    });
+  }
+
   /* ---------------- Utils ---------------- */
 
   function dateToISODate(d) {
@@ -567,6 +683,7 @@
     const user = await getCurrentUser();
     const links = [
       { id: 'parser', href: 'index.html', label: 'Parser' },
+      { id: 'dashboard', href: 'dashboard.html', label: 'Dashboard Prioritas', auth: true },
       { id: 'stores', href: 'stores.html', label: 'Toko Kompetitor', auth: true },
       { id: 'ichibot', href: 'ichibot.html', label: 'Produk Ichibot', auth: true },
     ];
@@ -644,6 +761,8 @@
     upsertMatch,
     deleteMatch,
     suggestIchibot,
+    // dashboard
+    getDashboardSummary,
     // utils
     formatRupiah,
     formatAngka,
