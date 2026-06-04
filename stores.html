@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Daftar toko kompetitor — Ichibot Tracker">
+  <title>Toko Kompetitor — Ichibot Tracker</title>
+  <link rel="stylesheet" href="assets/common.css">
+</head>
+<body>
+
+  <div id="app-nav"></div>
+
+  <header class="page-header">
+    <div class="container">
+      <div class="page-header-inner">
+        <h1>Toko Kompetitor</h1>
+        <span class="page-badge" id="store-count-badge">—</span>
+      </div>
+      <p class="subtitle">Snapshot terbaru tiap toko + history parsing.</p>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-toolbar">
+      <div>
+        <button class="btn-primary" id="btn-add-store" type="button">+ Toko Baru</button>
+      </div>
+      <div>
+        <a href="index.html" class="btn-secondary" style="text-decoration: none;">Buka Parser →</a>
+      </div>
+    </div>
+
+    <div class="msg-box msg-error" id="msg-error">
+      <strong>Gagal memuat data</strong>
+      <span id="msg-error-text"></span>
+    </div>
+
+    <div class="msg-box msg-success" id="msg-success">
+      <span id="msg-success-text"></span>
+    </div>
+
+    <div id="loading" style="text-align:center; padding: 40px; color: var(--text-muted);">
+      <span class="spinner"></span>
+      <span style="margin-left: 10px;">Memuat toko…</span>
+    </div>
+
+    <div id="empty-state" class="empty-state" style="display: none;">
+      <h2>Belum ada toko kompetitor</h2>
+      <p>Mulai dengan menambahkan toko, atau langsung parse dump teks dari Seller Centre lalu pilih "Simpan ke DB".</p>
+      <button class="btn-primary" id="btn-add-store-empty" type="button">+ Tambah Toko Pertama</button>
+    </div>
+
+    <div class="stores-grid" id="stores-grid" style="display: none;"></div>
+
+  </main>
+
+  <!-- Modal: Tambah Toko Baru -->
+  <div class="modal-overlay" id="add-store-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Toko Kompetitor Baru</div>
+        <button class="modal-close" id="add-modal-close" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="msg-box msg-error" id="add-modal-error">
+          <span id="add-modal-error-text"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="add-store-name">Nama toko *</label>
+          <input type="text" class="form-input" id="add-store-name" placeholder="Misal: Toko Elektronik ABC" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="add-store-url">URL Shopee (opsional)</label>
+          <input type="text" class="form-input" id="add-store-url" placeholder="https://shopee.co.id/toko_abc">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="add-store-catatan">Catatan (opsional)</label>
+          <textarea class="form-textarea" id="add-store-catatan" placeholder="Misal: kompetitor utama kategori sensor"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="add-modal-cancel" type="button">Batal</button>
+        <button class="btn-primary" id="add-modal-save" type="button">Simpan Toko</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase.js"></script>
+  <script>
+    (async function () {
+      // Auth gate
+      const user = await App.requireAuth();
+      if (!user) return;
+
+      App.renderNav('stores');
+
+      const loadingEl = document.getElementById('loading');
+      const emptyEl = document.getElementById('empty-state');
+      const gridEl = document.getElementById('stores-grid');
+      const countBadge = document.getElementById('store-count-badge');
+      const msgError = document.getElementById('msg-error');
+      const msgErrorText = document.getElementById('msg-error-text');
+      const msgSuccess = document.getElementById('msg-success');
+      const msgSuccessText = document.getElementById('msg-success-text');
+
+      const btnAddStore = document.getElementById('btn-add-store');
+      const btnAddStoreEmpty = document.getElementById('btn-add-store-empty');
+
+      const modal = document.getElementById('add-store-modal');
+      const modalClose = document.getElementById('add-modal-close');
+      const modalCancel = document.getElementById('add-modal-cancel');
+      const modalSave = document.getElementById('add-modal-save');
+      const inputName = document.getElementById('add-store-name');
+      const inputUrl = document.getElementById('add-store-url');
+      const inputCatatan = document.getElementById('add-store-catatan');
+      const modalError = document.getElementById('add-modal-error');
+      const modalErrorText = document.getElementById('add-modal-error-text');
+
+      function showError(msg) {
+        msgErrorText.textContent = msg;
+        msgError.classList.add('visible');
+      }
+      function showSuccess(msg) {
+        msgSuccessText.textContent = msg;
+        msgSuccess.classList.add('visible');
+        setTimeout(() => msgSuccess.classList.remove('visible'), 4000);
+      }
+      function showModalError(msg) {
+        modalErrorText.textContent = msg;
+        modalError.classList.add('visible');
+      }
+      function hideModalError() {
+        modalError.classList.remove('visible');
+      }
+      function openModal() {
+        inputName.value = '';
+        inputUrl.value = '';
+        inputCatatan.value = '';
+        hideModalError();
+        modal.classList.add('visible');
+        setTimeout(() => inputName.focus(), 50);
+      }
+      function closeModal() {
+        modal.classList.remove('visible');
+      }
+
+      btnAddStore.addEventListener('click', openModal);
+      btnAddStoreEmpty.addEventListener('click', openModal);
+      modalClose.addEventListener('click', closeModal);
+      modalCancel.addEventListener('click', closeModal);
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      modalSave.addEventListener('click', async () => {
+        hideModalError();
+        const nama = inputName.value.trim();
+        if (!nama) {
+          showModalError('Nama toko wajib diisi.');
+          return;
+        }
+
+        const originalText = modalSave.innerHTML;
+        modalSave.disabled = true;
+        modalSave.innerHTML = '<span class="spinner"></span> Menyimpan…';
+
+        try {
+          const existing = await App.findStoreByName(nama);
+          if (existing) {
+            showModalError('Toko dengan nama "' + nama + '" sudah ada.');
+            modalSave.disabled = false;
+            modalSave.innerHTML = originalText;
+            return;
+          }
+          await App.createStore(nama, inputUrl.value, inputCatatan.value);
+          closeModal();
+          showSuccess('Toko "' + nama + '" berhasil ditambahkan.');
+          await loadStores();
+        } catch (err) {
+          showModalError('Gagal: ' + (err.message || 'Unknown error'));
+        } finally {
+          modalSave.disabled = false;
+          modalSave.innerHTML = originalText;
+        }
+      });
+
+      async function loadStores() {
+        msgError.classList.remove('visible');
+        loadingEl.style.display = '';
+        emptyEl.style.display = 'none';
+        gridEl.style.display = 'none';
+
+        try {
+          const stores = await App.listStoresWithLatest();
+          loadingEl.style.display = 'none';
+          countBadge.textContent = stores.length + ' toko';
+
+          if (stores.length === 0) {
+            emptyEl.style.display = '';
+            return;
+          }
+
+          gridEl.style.display = '';
+          gridEl.innerHTML = stores.map(renderStoreCard).join('');
+        } catch (err) {
+          loadingEl.style.display = 'none';
+          showError(err.message || 'Tidak diketahui');
+        }
+      }
+
+      function renderStoreCard(s) {
+        const hasParse = !!s.latest_parse;
+        const lp = s.latest_parse;
+        const badgeClass = hasParse ? 'store-badge active' : 'store-badge';
+        const badgeText = hasParse ? App.formatTanggalRelatif(lp.parsed_at) : 'belum ada parse';
+
+        const stats = hasParse
+          ? `
+            <div class="store-stats">
+              <div>
+                <div class="store-stat-label">Produk aktif</div>
+                <div class="store-stat-value">${App.formatAngka(lp.jumlah_produk_aktif)}</div>
+              </div>
+              <div>
+                <div class="store-stat-label">Omset 30 hari</div>
+                <div class="store-stat-value">${App.formatRupiah(lp.total_omset_30hari)}</div>
+              </div>
+            </div>`
+          : `
+            <div class="store-stats">
+              <div>
+                <div class="store-stat-label">Status</div>
+                <div class="store-stat-value" style="font-size: 0.82rem; color: var(--text-muted);">Belum ada data</div>
+              </div>
+            </div>`;
+
+        const totalParses = s.total_parses
+          ? `${s.total_parses} snapshot tersimpan`
+          : 'Klik untuk parse pertama';
+
+        // Fase 2 akan punya store.html?id=... untuk dashboard per toko.
+        // Untuk sekarang, klik card buka parser dengan nama toko pre-filled.
+        const url = `index.html?store=${encodeURIComponent(s.nama)}`;
+
+        return `
+          <a class="store-card" href="${url}">
+            <div class="store-card-header">
+              <div class="store-name">${App.escapeHTML(s.nama)}</div>
+              <span class="${badgeClass}">${badgeText}</span>
+            </div>
+            ${stats}
+            <div class="store-meta">${totalParses}</div>
+          </a>
+        `;
+      }
+
+      await loadStores();
+    })();
+  </script>
+</body>
+</html>
