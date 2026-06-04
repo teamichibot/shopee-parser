@@ -1192,8 +1192,10 @@ input[type='number'].form-input {
   margin: 28px 0 12px;
 }
 
-/* Match status placeholder (akan dipakai di Fase 4) */
+/* ---------- Match Status Badges ---------- */
 .match-badge {
+  display: inline-flex;
+  align-items: center;
   font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -1202,10 +1204,92 @@ input[type='number'].form-input {
   border-radius: 4px;
   background: var(--surface-raised);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 .match-badge.matched {
   background: var(--success-muted);
   color: var(--success);
+}
+.match-badge.none {
+  background: var(--warn-muted);
+  color: var(--warn);
+}
+
+.match-cell-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* ---------- Suggestion List (Modal) ---------- */
+.suggest-list {
+  margin-top: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.suggest-item:last-child {
+  border-bottom: none;
+}
+.suggest-item:hover,
+.suggest-item.selected {
+  background: var(--surface);
+}
+.suggest-item.selected {
+  border-left: 3px solid var(--accent);
+  padding-left: 9px; /* adjust for border */
+}
+
+.suggest-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.suggest-info {
+  flex: 1;
+  min-width: 0;
+}
+.suggest-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.suggest-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: flex;
+  gap: 8px;
+}
+.suggest-meta span {
+  font-family: var(--font-mono);
+}
+.suggest-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 /* ============================================================

@@ -415,6 +415,99 @@
     return Array.from(set).sort();
   }
 
+  /* ---------------- Matching ---------------- */
+
+  function normalizeName(s) {
+    if (s == null) return '';
+    return String(s).trim().toLowerCase();
+  }
+
+  /**
+   * Bulk fetch matches untuk list nama produk kompetitor.
+   * @param {Array<string>} names
+   * @returns {Promise<Object>} - { normalizedName: matchObject, ... }
+   */
+  async function getMatchesForNames(names) {
+    if (!Array.isArray(names) || names.length === 0) return {};
+    const normalized = Array.from(
+      new Set(names.map(normalizeName).filter(Boolean))
+    );
+    if (normalized.length === 0) return {};
+
+    const { data, error } = await sb
+      .from('product_matches')
+      .select(
+        'id, nama_produk_normalized, status, matched_at, matched_by_email, ichibot_product_id, ichibot_products(id, external_id, sku, nama_produk, kategori, prioritas, harga_normal, link_gambar_1)'
+      )
+      .in('nama_produk_normalized', normalized);
+    if (error) throw error;
+
+    const map = {};
+    (data || []).forEach((m) => {
+      map[m.nama_produk_normalized] = m;
+    });
+    return map;
+  }
+
+  /**
+   * Upsert match: simpan/replace rule untuk nama produk kompetitor.
+   * @param {string} namaProduk - nama produk kompetitor (akan dinormalisasi)
+   * @param {string|null} ichibotProductId - UUID, atau null kalau status='no_ichibot_equivalent'
+   * @param {string} status - 'matched' | 'no_ichibot_equivalent'
+   * @param {string} [email]
+   * @returns {Promise<Object>}
+   */
+  async function upsertMatch(namaProduk, ichibotProductId, status, email) {
+    const namaNorm = normalizeName(namaProduk);
+    if (!namaNorm) throw new Error('Nama produk kosong, tidak bisa dimatch');
+    if (status === 'matched' && !ichibotProductId) {
+      throw new Error('ichibot_product_id wajib diisi kalau status=matched');
+    }
+
+    const payload = {
+      nama_produk_normalized: namaNorm,
+      ichibot_product_id: ichibotProductId || null,
+      status: status || 'matched',
+      matched_at: new Date().toISOString(),
+      matched_by_email: email || null,
+    };
+
+    const { data, error } = await sb
+      .from('product_matches')
+      .upsert(payload, { onConflict: 'nama_produk_normalized' })
+      .select(
+        '*, ichibot_products(id, external_id, sku, nama_produk, kategori, prioritas, harga_normal, link_gambar_1)'
+      )
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  /** Hapus match rule untuk nama produk kompetitor. */
+  async function deleteMatch(namaProduk) {
+    const namaNorm = normalizeName(namaProduk);
+    if (!namaNorm) return;
+    const { error } = await sb
+      .from('product_matches')
+      .delete()
+      .eq('nama_produk_normalized', namaNorm);
+    if (error) throw error;
+  }
+
+  /**
+   * Trigram similarity search → top N ichibot products mirip query.
+   * Memanggil RPC suggest_ichibot.
+   */
+  async function suggestIchibot(queryText, limit) {
+    if (!queryText || !String(queryText).trim()) return [];
+    const { data, error } = await sb.rpc('suggest_ichibot', {
+      query_text: String(queryText).trim(),
+      limit_n: limit || 5,
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
   /* ---------------- Utils ---------------- */
 
   function dateToISODate(d) {
@@ -546,6 +639,11 @@
     listIchibotProducts,
     getIchibotStats,
     getIchibotKategoriList,
+    // matching
+    getMatchesForNames,
+    upsertMatch,
+    deleteMatch,
+    suggestIchibot,
     // utils
     formatRupiah,
     formatAngka,

@@ -138,6 +138,46 @@
     </div>
   </div>
 
+  <!-- Match Modal -->
+  <div class="modal-overlay" id="match-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Match Produk Ichibot</div>
+        <button class="modal-close" id="match-modal-close" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 16px; font-size: 0.85rem;">
+          <div style="color: var(--text-muted); margin-bottom: 4px;">Nama Produk Kompetitor:</div>
+          <div id="match-comp-name" style="font-weight: 600; color: var(--text);">—</div>
+        </div>
+        
+        <div class="msg-box msg-error" id="match-modal-error">
+          <span id="match-modal-error-text"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="match-search">Cari Produk Ichibot</label>
+          <input type="text" class="form-input" id="match-search" placeholder="Ketik nama atau SKU untuk mencari manual..." autocomplete="off">
+        </div>
+
+        <div id="match-suggest-loading" style="display: none; padding: 20px; text-align: center; color: var(--text-muted);">
+          <span class="spinner"></span> Mencari saran...
+        </div>
+        
+        <div class="suggest-list" id="match-suggest-list"></div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <div>
+          <button class="btn-secondary" id="match-btn-none" type="button">Tandai Tidak Ada</button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-secondary" id="match-modal-cancel" type="button">Batal</button>
+          <button class="btn-primary" id="match-modal-save" type="button">Simpan Match</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/supabase.js"></script>
   <script>
@@ -181,6 +221,18 @@
         editCatatan: $('edit-store-catatan'),
         editError: $('edit-modal-error'),
         editErrorText: $('edit-modal-error-text'),
+        // Match modal
+        matchModal: $('match-modal'),
+        matchClose: $('match-modal-close'),
+        matchCancel: $('match-modal-cancel'),
+        matchSave: $('match-modal-save'),
+        matchBtnNone: $('match-btn-none'),
+        matchCompName: $('match-comp-name'),
+        matchSearch: $('match-search'),
+        matchSuggestLoading: $('match-suggest-loading'),
+        matchSuggestList: $('match-suggest-list'),
+        matchError: $('match-modal-error'),
+        matchErrorText: $('match-modal-error-text'),
       };
 
       // Get store id from URL
@@ -413,6 +465,16 @@
           }
 
           els.top50Container.style.display = '';
+          
+          // Fetch existing matches
+          const names = data.map(p => p.nama_produk);
+          let matchMap = {};
+          try {
+            matchMap = await App.getMatchesForNames(names);
+          } catch (e) {
+            console.error('Failed to load matches:', e);
+          }
+
           els.top50Body.innerHTML = data.map((p, i) => {
             const rank = i + 1;
             const rankClass = rank <= 3 ? 'rank-cell top-3' : 'rank-cell';
@@ -422,7 +484,7 @@
               : '—';
 
             return `
-              <tr>
+              <tr data-product-name="${App.escapeHTML(p.nama_produk || '')}">
                 <td class="${rankClass}">${rank}</td>
                 <td class="col-nama-prod">${App.escapeHTML(p.nama_produk || '—')}</td>
                 <td class="col-rp">${App.formatRupiah(p.harga)}</td>
@@ -430,15 +492,53 @@
                 <td class="col-num">${App.formatAngka(p.terjual_30hari)}</td>
                 <td>${trend}</td>
                 <td class="col-num">${rating}</td>
-                <td><span class="match-badge">belum</span></td>
+                <td class="col-match-badge">${renderMatchCell(p.nama_produk, matchMap)}</td>
               </tr>
             `;
           }).join('');
+
+          // Attach match click handlers
+          document.querySelectorAll('.btn-match-trigger').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const row = e.target.closest('tr');
+              const pName = row.getAttribute('data-product-name');
+              openMatchModal(pName, matchMap);
+            });
+          });
+
         } catch (err) {
           els.top50Loading.style.display = 'none';
           els.top50Empty.style.display = '';
           els.top50Empty.textContent = 'Gagal load: ' + err.message;
         }
+      }
+
+      function renderMatchCell(namaProduk, matchMap) {
+        if (!namaProduk) return `<div class="match-cell-content"><span class="match-badge none">No Name</span></div>`;
+        const norm = String(namaProduk).trim().toLowerCase();
+        const m = matchMap[norm];
+
+        if (m) {
+          if (m.status === 'no_ichibot_equivalent') {
+            return `
+              <div class="match-cell-content">
+                <span class="match-badge none">Tidak Ada</span>
+                <button class="btn-mini btn-match-trigger" type="button">Edit</button>
+              </div>`;
+          } else if (m.status === 'matched' && m.ichibot_products) {
+            return `
+              <div class="match-cell-content">
+                <span class="match-badge matched" title="${App.escapeHTML(m.ichibot_products.nama_produk)}">${App.escapeHTML(m.ichibot_products.sku || 'Matched')}</span>
+                <button class="btn-mini btn-match-trigger" type="button">Edit</button>
+              </div>`;
+          }
+        }
+        
+        return `
+          <div class="match-cell-content">
+            <span class="match-badge">Belum</span>
+            <button class="btn-mini btn-match-trigger" type="button" style="color:var(--accent); border-color:var(--accent);">🔍 Match</button>
+          </div>`;
       }
 
       function renderTrend(p) {
@@ -528,6 +628,193 @@
           window.location.replace('stores.html');
         } catch (err) {
           alert('Gagal hapus: ' + err.message);
+        }
+      }
+
+      /* ====================================================
+         Match Modal Logic
+         ==================================================== */
+      let currentMatchCompName = '';
+      let currentMatchMapRef = null;
+      let selectedIchibotId = null;
+      let matchSearchTimeout = null;
+
+      function debounceSearchMatch(fn, ms) {
+        return function() {
+          clearTimeout(matchSearchTimeout);
+          matchSearchTimeout = setTimeout(() => fn.apply(this, arguments), ms);
+        };
+      }
+
+      els.matchClose.addEventListener('click', closeMatchModal);
+      els.matchCancel.addEventListener('click', closeMatchModal);
+      els.matchModal.addEventListener('click', (e) => {
+        if (e.target === els.matchModal) closeMatchModal();
+      });
+
+      els.matchSearch.addEventListener('input', debounceSearchMatch(() => {
+        const query = els.matchSearch.value;
+        if (!query.trim()) {
+          // If empty, fallback to suggestion based on comp name
+          loadSuggestions(currentMatchCompName);
+        } else {
+          loadManualSearch(query);
+        }
+      }, 300));
+
+      els.matchBtnNone.addEventListener('click', async () => {
+        await saveMatchState('no_ichibot_equivalent', null);
+      });
+      
+      els.matchSave.addEventListener('click', async () => {
+        if (!selectedIchibotId) {
+          showMatchError('Pilih salah satu produk Ichibot dari daftar.');
+          return;
+        }
+        await saveMatchState('matched', selectedIchibotId);
+      });
+
+      function openMatchModal(compName, matchMapRef) {
+        currentMatchCompName = compName;
+        currentMatchMapRef = matchMapRef;
+        selectedIchibotId = null;
+        
+        els.matchCompName.textContent = compName;
+        els.matchSearch.value = '';
+        els.matchError.classList.remove('visible');
+        els.matchModal.classList.add('visible');
+        
+        // Pre-select if already matched
+        const norm = String(compName).trim().toLowerCase();
+        const existing = matchMapRef[norm];
+        if (existing && existing.status === 'matched') {
+          selectedIchibotId = existing.ichibot_product_id;
+        }
+
+        loadSuggestions(compName, selectedIchibotId);
+        els.matchSearch.focus();
+      }
+
+      function closeMatchModal() {
+        els.matchModal.classList.remove('visible');
+        currentMatchCompName = '';
+        selectedIchibotId = null;
+      }
+
+      function showMatchError(msg) {
+        els.matchErrorText.textContent = msg;
+        els.matchError.classList.add('visible');
+      }
+
+      async function loadSuggestions(queryText, preselectId = null) {
+        els.matchSuggestList.innerHTML = '';
+        els.matchSuggestLoading.style.display = '';
+        try {
+          const suggestions = await App.suggestIchibot(queryText, 5);
+          renderSuggestList(suggestions, preselectId);
+        } catch (e) {
+          els.matchSuggestList.innerHTML = `<div class="suggest-empty">Gagal memuat saran: ${App.escapeHTML(e.message)}</div>`;
+        } finally {
+          els.matchSuggestLoading.style.display = 'none';
+        }
+      }
+
+      async function loadManualSearch(query) {
+        els.matchSuggestList.innerHTML = '';
+        els.matchSuggestLoading.style.display = '';
+        try {
+          const res = await App.listIchibotProducts({ search: query, limit: 10 });
+          renderSuggestList(res.data, selectedIchibotId);
+        } catch (e) {
+          els.matchSuggestList.innerHTML = `<div class="suggest-empty">Pencarian gagal: ${App.escapeHTML(e.message)}</div>`;
+        } finally {
+          els.matchSuggestLoading.style.display = 'none';
+        }
+      }
+
+      function renderSuggestList(items, preselectId) {
+        if (!items || items.length === 0) {
+          els.matchSuggestList.innerHTML = `<div class="suggest-empty">Tidak ada produk Ichibot yang cocok.</div>`;
+          return;
+        }
+
+        els.matchSuggestList.innerHTML = items.map(it => {
+          const isSelected = selectedIchibotId === it.id || preselectId === it.id;
+          if (isSelected) selectedIchibotId = it.id; // sync back if preselectId matched
+
+          const thumb = it.link_gambar_1 
+            ? `<img src="${App.escapeHTML(it.link_gambar_1)}" class="suggest-thumb" loading="lazy">`
+            : `<div class="suggest-thumb" style="display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--text-muted);">No Img</div>`;
+            
+          return `
+            <div class="suggest-item ${isSelected ? 'selected' : ''}" data-id="${it.id}">
+              ${thumb}
+              <div class="suggest-info">
+                <div class="suggest-name">${App.escapeHTML(it.nama_produk)}</div>
+                <div class="suggest-meta">
+                  <span>${App.escapeHTML(it.sku)}</span>
+                  <span>·</span>
+                  <span>${App.formatRupiah(it.harga_normal)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        els.matchSuggestList.querySelectorAll('.suggest-item').forEach(el => {
+          el.addEventListener('click', () => {
+            els.matchSuggestList.querySelectorAll('.suggest-item').forEach(x => x.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedIchibotId = el.getAttribute('data-id');
+          });
+        });
+      }
+
+      async function saveMatchState(status, ichibotId) {
+        els.matchError.classList.remove('visible');
+        const origTextBtnSave = els.matchSave.innerHTML;
+        const origTextBtnNone = els.matchBtnNone.innerHTML;
+        
+        if (status === 'matched') {
+          els.matchSave.disabled = true;
+          els.matchSave.innerHTML = '<span class="spinner"></span>';
+        } else {
+          els.matchBtnNone.disabled = true;
+          els.matchBtnNone.innerHTML = '<span class="spinner"></span>';
+        }
+
+        try {
+          const user = await App.getCurrentUser();
+          const email = user ? user.email : null;
+          
+          const result = await App.upsertMatch(currentMatchCompName, ichibotId, status, email);
+          
+          // Update local map reference
+          const norm = String(currentMatchCompName).trim().toLowerCase();
+          currentMatchMapRef[norm] = result;
+
+          // Re-render only that cell in table without reloading
+          const row = document.querySelector(`tr[data-product-name="${CSS.escape(currentMatchCompName)}"]`);
+          if (row) {
+            const cell = row.querySelector('.col-match-badge');
+            if (cell) {
+              cell.innerHTML = renderMatchCell(currentMatchCompName, currentMatchMapRef);
+              // Re-attach listener
+              const btn = cell.querySelector('.btn-match-trigger');
+              if (btn) {
+                btn.addEventListener('click', () => openMatchModal(currentMatchCompName, currentMatchMapRef));
+              }
+            }
+          }
+          
+          closeMatchModal();
+        } catch (err) {
+          showMatchError('Gagal menyimpan: ' + err.message);
+        } finally {
+          els.matchSave.disabled = false;
+          els.matchSave.innerHTML = origTextBtnSave;
+          els.matchBtnNone.disabled = false;
+          els.matchBtnNone.innerHTML = origTextBtnNone;
         }
       }
     })();
