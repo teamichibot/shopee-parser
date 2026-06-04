@@ -12,8 +12,8 @@ Web app untuk track produk kompetitor Shopee + mapping ke catalog Ichibot Store 
 | Fase | Deskripsi | Status |
 |---|---|---|
 | **Fase 1** | Auth + simpan parsing kompetitor ke DB | ✅ **Selesai** |
-| **Fase 3** | Import & browse catalog Ichibot (XLSX) | 🚧 **Sedang dikerjakan** |
-| **Fase 2** | Dashboard per toko (Top 50 + history) | ⏳ Pending |
+| **Fase 3** | Import & browse catalog Ichibot (XLSX) | ✅ **Selesai** |
+| **Fase 2** | Dashboard per toko (Top 50 + history) | 🚧 **Next** |
 | **Fase 4** | Matching UI (kompetitor ↔ Ichibot) | ⏳ Pending |
 | **Fase 5** | Dashboard prioritas Ichibot (summary) | ⏳ Pending |
 
@@ -56,20 +56,28 @@ RLS: hanya `authenticated` role yang boleh akses (semua action). Anon hanya bisa
 
 ---
 
-## 🚧 Fase 3 — Import & Browse Catalog Ichibot (sedang dikerjakan)
+## ✅ Fase 3 — Import & Browse Catalog Ichibot (selesai)
 
-**Sudah:**
-- ✅ Schema `ichibot_products` (table sudah ada, kosong)
-- ✅ Helpers di `supabase.js`: `importIchibotProducts`, `listIchibotProducts`, `getIchibotStats`, `getIchibotKategoriList`
-- ✅ Styles di `common.css`: table, toolbar, pagination, import modal, badge
-- ✅ Link "Produk Ichibot" di nav
+**Yang berfungsi:**
+- Halaman `/ichibot.html` — auth-gated catalog browser
+- Stats bar (total, prioritas Ya, prioritas Tidak)
+- Toolbar: search nama/sku/id (debounced 250ms) + filter prioritas + filter kategori
+- Tabel paginated 50/halaman dengan thumbnail dari `link_gambar_1` (fallback "no img")
+- Import modal:
+  - Drop XLSX atau klik pilih file
+  - Preview: stats summary + 5 baris pertama + collapsible mapping report
+  - Bulk upsert via `external_id`, fallback insert untuk row tanpa ID
+  - Auto-refresh stats + kategori dropdown + table setelah sukses
 
-**Sisa:**
-- 🚧 `ichibot.html` — halaman browse + import XLSX
-  - Top stats bar (total, prioritas Ya, prioritas Tidak)
-  - Toolbar: search nama/sku/id + filter prioritas + filter kategori
-  - Tabel paginated dengan thumbnail (link gambar)
-  - Modal import XLSX (drop file → preview → upsert via `external_id`)
+**Bug fix (penting kalau bikin env baru):**
+Schema awal pakai partial unique index pada `external_id` yang gak compatible
+dengan `ON CONFLICT`. Fix:
+```sql
+drop index if exists ichibot_products_external_id_key;
+alter table ichibot_products
+  add constraint ichibot_products_external_id_key unique (external_id);
+```
+NULL di Postgres diperlakukan distinct → multiple row tanpa external_id tetap boleh.
 
 **Column mapping XLSX → DB:**
 
@@ -94,7 +102,7 @@ Re-import same XLSX → upsert by `external_id` (row dengan ID sama akan ke-upda
 
 ---
 
-## ⏳ Fase 2 — Dashboard per Toko (pending)
+## 🚧 Fase 2 — Dashboard per Toko (next)
 
 **Yang akan dibikin:**
 - `store.html?id=<uuid>` — dashboard per toko kompetitor
