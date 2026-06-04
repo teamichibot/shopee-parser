@@ -437,7 +437,7 @@
     const { data, error } = await sb
       .from('product_matches')
       .select(
-        'id, nama_produk_normalized, status, matched_at, matched_by_email, ichibot_product_id, ichibot_products(id, external_id, sku, nama_produk, kategori, prioritas, harga_normal, link_gambar_1)'
+        'id, nama_produk_normalized, status, matched_at, matched_by_email, ichibot_product_id, ichibot_products(id, external_id, sku, nama_produk, kategori, prioritas, harga_diskon, link_gambar_1)'
       )
       .in('nama_produk_normalized', normalized);
     if (error) throw error;
@@ -476,7 +476,7 @@
       .from('product_matches')
       .upsert(payload, { onConflict: 'nama_produk_normalized' })
       .select(
-        '*, ichibot_products(id, external_id, sku, nama_produk, kategori, prioritas, harga_normal, link_gambar_1)'
+        '*, ichibot_products(id, external_id, sku, nama_produk, kategori, prioritas, harga_diskon, link_gambar_1)'
       )
       .single();
     if (error) throw error;
@@ -566,7 +566,7 @@
     while(true) {
       const { data, error } = await sb
         .from('ichibot_products')
-        .select('id, sku, nama_produk, kategori, prioritas, harga_normal')
+        .select('id, sku, nama_produk, kategori, prioritas, harga_diskon')
         .range(offset, offset + 999);
       if (error) throw error;
       if (!data || data.length === 0) break;
@@ -579,6 +579,7 @@
     ichibotProducts.forEach(ip => {
       ichibotMap[ip.id] = {
         ...ip,
+        harga_ichibot: ip.harga_diskon,
         match_count: 0,
         total_omset: 0,
         sum_rank: 0,
