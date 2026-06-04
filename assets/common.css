@@ -304,7 +304,12 @@ footer kbd {
 }
 
 /* ---------- Buttons ---------- */
-button {
+button,
+a.btn-primary,
+a.btn-secondary,
+a.btn-danger,
+a.btn-ghost,
+a.btn-download {
   font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 500;
@@ -318,6 +323,7 @@ button {
   justify-content: center;
   gap: 8px;
   line-height: 1;
+  text-decoration: none;
 }
 
 .btn-primary {
