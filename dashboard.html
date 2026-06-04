@@ -104,8 +104,7 @@
                 <th>Nama Produk Ichibot</th>
                 <th>Kategori</th>
                 <th>Prioritas</th>
-                <th class="col-num">Harga Ichibot</th>
-                <th class="col-num">Harga Komp. Terendah</th>
+                <th class="col-num">Harga</th>
                 <th class="col-num">Jml Toko</th>
                 <th class="col-num">Rata² Rank</th>
                 <th class="col-num">Omset Kompetitor (30hr)</th>
@@ -219,20 +218,27 @@
         return '<span class="badge-recommendation badge-rec-aman">➖ Aman</span>';
       }
 
-      function renderHargaKomp(p) {
-        if (p.min_harga_kompetitor == null) return '<span style="color:var(--text-muted)">—</span>';
-        const hargaIchi = p.harga_normal;
-        if (hargaIchi == null) return App.formatRupiah(p.min_harga_kompetitor);
-        const diff = p.min_harga_kompetitor - hargaIchi;
-        let diffHTML = '';
-        if (diff < 0) {
-          diffHTML = `<div style="font-size:0.65rem;color:var(--success);font-weight:600;margin-top:2px;">↓ ${App.formatRupiah(Math.abs(diff))} lebih murah</div>`;
-        } else if (diff > 0) {
-          diffHTML = `<div style="font-size:0.65rem;color:var(--error);font-weight:600;margin-top:2px;">↑ ${App.formatRupiah(diff)} lebih mahal</div>`;
-        } else {
-          diffHTML = `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;">Sama</div>`;
+      function renderHargaCell(p) {
+        const ichiPrice = p.harga_normal;
+        const kompPrice = p.min_harga_kompetitor;
+
+        let html = `<div style="color:var(--text);">${App.formatRupiah(ichiPrice)}</div>`;
+
+        if (kompPrice != null) {
+          html += `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;white-space:nowrap;">Komp: ${App.formatRupiah(kompPrice)}</div>`;
+          if (ichiPrice != null) {
+            const diff = kompPrice - ichiPrice;
+            if (diff < 0) {
+              html += `<div style="font-size:0.65rem;color:var(--success);font-weight:600;margin-top:1px;white-space:nowrap;">↓ ${App.formatRupiah(Math.abs(diff))} lebih murah</div>`;
+            } else if (diff > 0) {
+              html += `<div style="font-size:0.65rem;color:var(--error);font-weight:600;margin-top:1px;white-space:nowrap;">↑ ${App.formatRupiah(diff)} lebih mahal</div>`;
+            } else {
+              html += `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px;">Sama</div>`;
+            }
+          }
         }
-        return App.formatRupiah(p.min_harga_kompetitor) + diffHTML;
+
+        return html;
       }
 
       function renderTable(data) {
@@ -252,8 +258,7 @@
               <td class="col-nama-prod" title="${App.escapeHTML(p.nama_produk || '')}">${App.escapeHTML(p.nama_produk || '—')}</td>
               <td>${App.escapeHTML(p.kategori || '—')}</td>
               <td>${p.prioritas === 'Ya' ? '<span class="badge badge-prioritas-ya">Ya</span>' : '<span class="badge badge-prioritas-tidak">Tidak</span>'}</td>
-              <td class="col-rp">${App.formatRupiah(p.harga_normal)}</td>
-              <td class="col-rp">${renderHargaKomp(p)}</td>
+              <td class="col-rp">${renderHargaCell(p)}</td>
               <td class="col-num">${App.formatAngka(p.match_count)}</td>
               <td class="col-num">${rank}</td>
               <td class="col-rp" style="font-weight:600; color:var(--text);">${App.formatRupiah(p.total_omset)}</td>
@@ -318,7 +323,7 @@
 
         ws['!cols'] = [
           { wch: 12 }, { wch: 15 }, { wch: 45 }, { wch: 18 }, { wch: 10 },
-          { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 15 }, { wch: 25 }
+          { wch: 18 }, { wch: 22 }, { wch: 15 }, { wch: 15 }, { wch: 25 }
         ];
 
         const wb = XLSX.utils.book_new();
