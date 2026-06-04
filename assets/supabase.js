@@ -128,6 +128,92 @@
     return data;
   }
 
+  /* ---------------- Store Dashboard ---------------- */
+
+  async function getStoreById(id) {
+    const { data, error } = await sb
+      .from('competitor_stores')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateStore(id, fields) {
+    const { data, error } = await sb
+      .from('competitor_stores')
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteStore(id) {
+    const { error } = await sb.from('competitor_stores').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  /** List semua parse_runs untuk satu toko, descending by parsed_at. */
+  async function listParseRuns(storeId) {
+    const { data, error } = await sb
+      .from('parse_runs')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('parsed_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getParseRun(parseRunId) {
+    const { data, error } = await sb
+      .from('parse_runs')
+      .select('*')
+      .eq('id', parseRunId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteParseRun(parseRunId) {
+    const { error } = await sb.from('parse_runs').delete().eq('id', parseRunId);
+    if (error) throw error;
+  }
+
+  /**
+   * List produk kompetitor dari satu snapshot.
+   * @param {string} parseRunId
+   * @param {{limit?: number, offset?: number, orderBy?: string, dropDeadStock?: boolean, search?: string}} opts
+   */
+  async function listCompetitorProducts(parseRunId, opts) {
+    opts = opts || {};
+    const limit = opts.limit || 50;
+    const offset = opts.offset || 0;
+    const orderBy = opts.orderBy || 'omset_30hari';
+
+    let q = sb
+      .from('competitor_products')
+      .select('*', { count: 'exact' })
+      .eq('parse_run_id', parseRunId)
+      .order(orderBy, { ascending: false, nullsFirst: false });
+
+    if (opts.dropDeadStock) {
+      q = q.gt('omset_30hari', 0);
+    }
+    if (opts.search && opts.search.trim()) {
+      const term = opts.search.trim().replace(/[%_]/g, '\\$&');
+      q = q.ilike('nama_produk', `%${term}%`);
+    }
+
+    q = q.range(offset, offset + limit - 1);
+
+    const { data, count, error } = await q;
+    if (error) throw error;
+    return { data: data || [], total: count || 0 };
+  }
+
   /* ---------------- Parse Runs & Products ---------------- */
 
   /**
@@ -445,6 +531,14 @@
     listStoresWithLatest,
     createStore,
     findStoreByName,
+    getStoreById,
+    updateStore,
+    deleteStore,
+    // parse runs
+    listParseRuns,
+    getParseRun,
+    deleteParseRun,
+    listCompetitorProducts,
     // products
     saveParseResult,
     // ichibot

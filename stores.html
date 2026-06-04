@@ -241,9 +241,7 @@
           ? `${s.total_parses} snapshot tersimpan`
           : 'Klik untuk parse pertama';
 
-        // Fase 2 akan punya store.html?id=... untuk dashboard per toko.
-        // Untuk sekarang, klik card buka parser dengan nama toko pre-filled.
-        const url = `index.html?store=${encodeURIComponent(s.nama)}`;
+        const url = `store.html?id=${encodeURIComponent(s.id)}`;
 
         return `
           <a class="store-card" href="${url}">

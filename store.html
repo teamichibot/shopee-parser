@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dashboard per toko kompetitor — Ichibot Tracker">
+  <title>Dashboard Toko — Ichibot Tracker</title>
+  <link rel="stylesheet" href="assets/common.css">
+</head>
+<body>
+
+  <div id="app-nav"></div>
+
+  <main class="container" style="padding-top: 28px;">
+
+    <!-- Loading -->
+    <div id="loading" style="text-align: center; padding: 60px; color: var(--text-muted);">
+      <span class="spinner"></span>
+      <span style="margin-left: 10px;">Memuat dashboard…</span>
+    </div>
+
+    <!-- Error -->
+    <div id="error-state" class="msg-box msg-error" style="display: none;">
+      <strong>Gagal memuat data</strong>
+      <span id="error-text"></span>
+      <p style="margin-top: 8px;"><a href="stores.html">← Kembali ke daftar toko</a></p>
+    </div>
+
+    <!-- Main content (hidden until loaded) -->
+    <div id="content" style="display: none;">
+
+      <!-- Header toko -->
+      <div class="store-dashboard-header">
+        <div class="store-dashboard-title">
+          <h1 id="store-name">—</h1>
+          <div class="store-dashboard-meta">
+            <a href="stores.html" style="color: var(--text-muted);">← Daftar toko</a>
+            <span id="store-url-wrap" style="display: none;">
+              <a id="store-url" href="#" target="_blank" rel="noopener">URL Shopee ↗</a>
+            </span>
+            <span id="store-catatan" style="font-style: italic;"></span>
+          </div>
+        </div>
+        <div class="store-dashboard-actions">
+          <a id="btn-parse-baru" href="#" class="btn-primary" style="text-decoration: none;">+ Parse Snapshot Baru</a>
+          <button id="btn-edit-store" type="button" class="btn-secondary">Edit</button>
+          <button id="btn-delete-store" type="button" class="btn-danger">Hapus</button>
+        </div>
+      </div>
+
+      <!-- No snapshot state -->
+      <div id="no-snapshot" class="empty-state" style="display: none;">
+        <h2>Belum ada snapshot</h2>
+        <p>Toko ini belum punya data parsing. Klik "Parse Snapshot Baru" untuk mulai.</p>
+        <a id="btn-parse-empty" href="#" class="btn-primary" style="text-decoration: none;">+ Parse Sekarang</a>
+      </div>
+
+      <!-- Snapshot picker + delta vs previous -->
+      <div id="snapshot-section" style="display: none;">
+        <div class="snapshot-bar">
+          <div>
+            <label for="snapshot-select">Snapshot:</label>
+            <select class="form-input" id="snapshot-select"></select>
+          </div>
+          <div class="snapshot-delta" id="snapshot-delta">—</div>
+        </div>
+
+        <!-- Stats summary -->
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <!-- Top 50 table -->
+        <div class="section-title">Top 50 Produk by Omset 30 Hari</div>
+        <div class="ichibot-table-wrapper">
+          <div id="top50-loading" style="padding: 32px; text-align: center; color: var(--text-muted);">
+            <span class="spinner"></span> Memuat produk…
+          </div>
+          <div id="top50-empty" style="display: none; padding: 32px; text-align: center; color: var(--text-muted);">
+            Tidak ada produk aktif (semua omset 30hr = 0).
+          </div>
+          <div id="top50-container" style="display: none;">
+            <div style="overflow-x: auto;">
+              <table class="ichibot-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px; text-align: right;">#</th>
+                    <th>Nama Produk</th>
+                    <th class="col-num">Harga</th>
+                    <th class="col-num">Omset 30hr</th>
+                    <th class="col-num">Terjual 30hr</th>
+                    <th>Trend</th>
+                    <th class="col-num">Rating</th>
+                    <th>Match Ichibot</th>
+                  </tr>
+                </thead>
+                <tbody id="top50-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Snapshot history -->
+        <div class="section-title">History Snapshot</div>
+        <div class="history-list" id="history-list"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Edit Store Modal -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Edit Toko</div>
+        <button class="modal-close" id="edit-modal-close" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="msg-box msg-error" id="edit-modal-error">
+          <span id="edit-modal-error-text"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-store-name">Nama toko *</label>
+          <input type="text" class="form-input" id="edit-store-name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-store-url">URL Shopee</label>
+          <input type="text" class="form-input" id="edit-store-url">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-store-catatan">Catatan</label>
+          <textarea class="form-textarea" id="edit-store-catatan"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="edit-modal-cancel" type="button">Batal</button>
+        <button class="btn-primary" id="edit-modal-save" type="button">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase.js"></script>
+  <script>
+    (async function () {
+      const user = await App.requireAuth();
+      if (!user) return;
+
+      App.renderNav('stores');
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        loading: $('loading'),
+        errorState: $('error-state'),
+        errorText: $('error-text'),
+        content: $('content'),
+        storeName: $('store-name'),
+        storeUrlWrap: $('store-url-wrap'),
+        storeUrl: $('store-url'),
+        storeCatatan: $('store-catatan'),
+        btnParseBaru: $('btn-parse-baru'),
+        btnEditStore: $('btn-edit-store'),
+        btnDeleteStore: $('btn-delete-store'),
+        btnParseEmpty: $('btn-parse-empty'),
+        noSnapshot: $('no-snapshot'),
+        snapshotSection: $('snapshot-section'),
+        snapshotSelect: $('snapshot-select'),
+        snapshotDelta: $('snapshot-delta'),
+        statsGrid: $('stats-grid'),
+        top50Loading: $('top50-loading'),
+        top50Empty: $('top50-empty'),
+        top50Container: $('top50-container'),
+        top50Body: $('top50-body'),
+        historyList: $('history-list'),
+        // Edit modal
+        editModal: $('edit-modal'),
+        editClose: $('edit-modal-close'),
+        editCancel: $('edit-modal-cancel'),
+        editSave: $('edit-modal-save'),
+        editName: $('edit-store-name'),
+        editUrl: $('edit-store-url'),
+        editCatatan: $('edit-store-catatan'),
+        editError: $('edit-modal-error'),
+        editErrorText: $('edit-modal-error-text'),
+      };
+
+      // Get store id from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const storeId = urlParams.get('id');
+
+      if (!storeId) {
+        showFatalError('Parameter ?id=<uuid> tidak ada di URL.');
+        return;
+      }
+
+      let store = null;
+      let parseRuns = []; // semua snapshot
+      let currentRun = null;
+
+      function showFatalError(msg) {
+        els.loading.style.display = 'none';
+        els.errorText.textContent = msg;
+        els.errorState.classList.add('visible');
+        els.errorState.style.display = 'block';
+      }
+
+      try {
+        store = await App.getStoreById(storeId);
+        if (!store) {
+          showFatalError('Toko tidak ditemukan (id: ' + storeId + ').');
+          return;
+        }
+        parseRuns = await App.listParseRuns(storeId);
+      } catch (err) {
+        showFatalError(err.message || 'Unknown error');
+        return;
+      }
+
+      // Render header
+      els.storeName.textContent = store.nama;
+      document.title = store.nama + ' — Ichibot Tracker';
+      if (store.url_shopee) {
+        els.storeUrl.href = store.url_shopee;
+        els.storeUrlWrap.style.display = '';
+      }
+      if (store.catatan) {
+        els.storeCatatan.textContent = '· ' + store.catatan;
+      }
+      els.btnParseBaru.href = 'index.html?store=' + encodeURIComponent(store.nama);
+      els.btnParseEmpty.href = els.btnParseBaru.href;
+
+      els.loading.style.display = 'none';
+      els.content.style.display = '';
+
+      if (parseRuns.length === 0) {
+        els.noSnapshot.style.display = '';
+        return;
+      }
+
+      els.snapshotSection.style.display = '';
+
+      // Populate snapshot dropdown
+      els.snapshotSelect.innerHTML = parseRuns.map((r, i) => {
+        const tgl = new Date(r.parsed_at).toLocaleString('id-ID', {
+          day: 'numeric', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        });
+        const label = tgl + ' — ' + App.formatAngka(r.jumlah_produk_aktif) + ' aktif' +
+                      (i === 0 ? ' (terbaru)' : '');
+        return `<option value="${r.id}">${App.escapeHTML(label)}</option>`;
+      }).join('');
+
+      els.snapshotSelect.addEventListener('change', () => {
+        const run = parseRuns.find((r) => r.id === els.snapshotSelect.value);
+        if (run) loadSnapshot(run);
+      });
+
+      // Edit modal handlers
+      els.btnEditStore.addEventListener('click', openEditModal);
+      els.editClose.addEventListener('click', closeEditModal);
+      els.editCancel.addEventListener('click', closeEditModal);
+      els.editModal.addEventListener('click', (e) => {
+        if (e.target === els.editModal) closeEditModal();
+      });
+      els.editSave.addEventListener('click', saveStoreEdit);
+      els.btnDeleteStore.addEventListener('click', confirmDeleteStore);
+
+      // Initial load: snapshot terbaru
+      loadSnapshot(parseRuns[0]);
+
+      /* ====================================================
+         Render snapshot
+         ==================================================== */
+      async function loadSnapshot(run) {
+        currentRun = run;
+        renderStats(run);
+        renderHistory();
+        await renderTop50(run);
+      }
+
+      function renderStats(run) {
+        // Cari snapshot sebelumnya (index berikutnya di parseRuns yang sorted desc)
+        const idx = parseRuns.findIndex((r) => r.id === run.id);
+        const prev = idx >= 0 && idx + 1 < parseRuns.length ? parseRuns[idx + 1] : null;
+
+        function deltaCmp(a, b) {
+          if (b == null || a == null) return null;
+          return { abs: a - b, pct: b !== 0 ? (a - b) / b : null };
+        }
+
+        function deltaHTML(d) {
+          if (!d) return '';
+          const dir = d.abs > 0 ? '↑' : (d.abs < 0 ? '↓' : '·');
+          const cls = d.abs > 0 ? 'delta-up' : (d.abs < 0 ? 'delta-down' : 'delta-flat');
+          const pct = d.pct != null
+            ? ' (' + (d.pct * 100).toFixed(1).replace('-', '') + '%)'
+            : '';
+          return `<span class="${cls}"> ${dir} ${App.formatAngka(Math.abs(d.abs))}${pct}</span>`;
+        }
+
+        const deltaAktif = prev ? deltaCmp(run.jumlah_produk_aktif, prev.jumlah_produk_aktif) : null;
+        const deltaOmset = prev ? deltaCmp(run.total_omset_30hari, prev.total_omset_30hari) : null;
+
+        const prevDate = prev ? new Date(prev.parsed_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : null;
+        els.snapshotDelta.innerHTML = prev
+          ? `vs snapshot ${prevDate}: ` +
+            `aktif ${deltaHTML(deltaAktif)}, omset ${deltaHTML(deltaOmset)}`
+          : '— snapshot pertama (tidak ada pembanding)';
+
+        const items = [
+          { label: 'Total produk', value: App.formatAngka(run.jumlah_produk_total), detail: 'diparsing snapshot ini' },
+          { label: 'Produk aktif', value: App.formatAngka(run.jumlah_produk_aktif), detail: 'omset 30hr > 0' },
+          { label: 'Total omset 30hr', value: App.formatRupiah(run.total_omset_30hari), detail: 'gabungan semua produk' },
+          { label: 'Dead stock', value: App.formatAngka(run.jumlah_produk_total - run.jumlah_produk_aktif), detail: 'omset 30hr = 0' },
+        ];
+        els.statsGrid.innerHTML = items.map((it) => `
+          <div class="stat-item">
+            <div class="stat-label">${it.label}</div>
+            <div class="stat-value">${it.value}</div>
+            ${it.detail ? `<div class="stat-detail">${it.detail}</div>` : ''}
+          </div>`).join('');
+      }
+
+      function renderHistory() {
+        if (parseRuns.length === 0) {
+          els.historyList.innerHTML = '';
+          return;
+        }
+        els.historyList.innerHTML = parseRuns.map((r, i) => {
+          const isActive = r.id === currentRun.id;
+          const tgl = new Date(r.parsed_at).toLocaleString('id-ID', {
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          });
+          return `
+            <div class="history-row${isActive ? ' active' : ''}">
+              <div>
+                <div class="history-date">${App.escapeHTML(tgl)}${i === 0 ? ' (terbaru)' : ''}</div>
+                <div class="history-relative">${App.formatTanggalRelatif(r.parsed_at)}${r.catatan ? ' · ' + App.escapeHTML(r.catatan) : ''}</div>
+              </div>
+              <div class="history-stat">${App.formatAngka(r.jumlah_produk_aktif)} aktif</div>
+              <div class="history-stat">${App.formatRupiah(r.total_omset_30hari)}</div>
+              <div class="history-actions">
+                ${isActive ? '' : `<button class="btn-mini" data-action="view" data-id="${r.id}">Lihat</button>`}
+                <button class="btn-mini danger" data-action="delete" data-id="${r.id}">Hapus</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        els.historyList.querySelectorAll('button[data-action]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const action = btn.getAttribute('data-action');
+            const id = btn.getAttribute('data-id');
+            if (action === 'view') {
+              const run = parseRuns.find((r) => r.id === id);
+              if (run) {
+                els.snapshotSelect.value = id;
+                loadSnapshot(run);
+              }
+            } else if (action === 'delete') {
+              await deleteSnapshot(id);
+            }
+          });
+        });
+      }
+
+      async function deleteSnapshot(id) {
+        const run = parseRuns.find((r) => r.id === id);
+        if (!run) return;
+        const tgl = new Date(run.parsed_at).toLocaleString('id-ID');
+        if (!confirm('Hapus snapshot ' + tgl + '?\nSemua data produk di snapshot ini akan ikut terhapus.')) return;
+        try {
+          await App.deleteParseRun(id);
+          parseRuns = parseRuns.filter((r) => r.id !== id);
+          if (parseRuns.length === 0) {
+            els.snapshotSection.style.display = 'none';
+            els.noSnapshot.style.display = '';
+            return;
+          }
+          // Reload dropdown + initial
+          els.snapshotSelect.innerHTML = parseRuns.map((r, i) => {
+            const t = new Date(r.parsed_at).toLocaleString('id-ID', {
+              day: 'numeric', month: 'short', year: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            });
+            const label = t + ' — ' + App.formatAngka(r.jumlah_produk_aktif) + ' aktif' +
+                          (i === 0 ? ' (terbaru)' : '');
+            return `<option value="${r.id}">${App.escapeHTML(label)}</option>`;
+          }).join('');
+          await loadSnapshot(parseRuns[0]);
+        } catch (err) {
+          alert('Gagal hapus: ' + err.message);
+        }
+      }
+
+      async function renderTop50(run) {
+        els.top50Loading.style.display = '';
+        els.top50Empty.style.display = 'none';
+        els.top50Container.style.display = 'none';
+
+        try {
+          const { data } = await App.listCompetitorProducts(run.id, {
+            limit: 50,
+            offset: 0,
+            orderBy: 'omset_30hari',
+            dropDeadStock: true,
+          });
+          els.top50Loading.style.display = 'none';
+
+          if (data.length === 0) {
+            els.top50Empty.style.display = '';
+            return;
+          }
+
+          els.top50Container.style.display = '';
+          els.top50Body.innerHTML = data.map((p, i) => {
+            const rank = i + 1;
+            const rankClass = rank <= 3 ? 'rank-cell top-3' : 'rank-cell';
+            const trend = renderTrend(p);
+            const rating = p.rating != null
+              ? p.rating.toFixed(1).replace('.', ',')
+              : '—';
+
+            return `
+              <tr>
+                <td class="${rankClass}">${rank}</td>
+                <td class="col-nama-prod">${App.escapeHTML(p.nama_produk || '—')}</td>
+                <td class="col-rp">${App.formatRupiah(p.harga)}</td>
+                <td class="col-rp">${App.formatRupiah(p.omset_30hari)}</td>
+                <td class="col-num">${App.formatAngka(p.terjual_30hari)}</td>
+                <td>${trend}</td>
+                <td class="col-num">${rating}</td>
+                <td><span class="match-badge">belum</span></td>
+              </tr>
+            `;
+          }).join('');
+        } catch (err) {
+          els.top50Loading.style.display = 'none';
+          els.top50Empty.style.display = '';
+          els.top50Empty.textContent = 'Gagal load: ' + err.message;
+        }
+      }
+
+      function renderTrend(p) {
+        const arah = p.trend_arah;
+        const persen = p.trend_persen;
+        if (!arah || arah === 'No data') return '<span class="trend-nodata">No data</span>';
+        const cls = arah === 'Naik' ? 'trend-naik' : (arah === 'Turun' ? 'trend-turun' : 'trend-nodata');
+        const arrow = arah === 'Naik' ? '↑' : (arah === 'Turun' ? '↓' : '·');
+        const pct = persen != null
+          ? ' ' + (Math.abs(persen) * 100).toFixed(1).replace('.', ',') + '%'
+          : '';
+        return `<span class="${cls}">${arrow}${pct}</span>`;
+      }
+
+      /* ====================================================
+         Edit + delete store
+         ==================================================== */
+      function openEditModal() {
+        els.editName.value = store.nama;
+        els.editUrl.value = store.url_shopee || '';
+        els.editCatatan.value = store.catatan || '';
+        els.editError.classList.remove('visible');
+        els.editModal.classList.add('visible');
+      }
+      function closeEditModal() {
+        els.editModal.classList.remove('visible');
+      }
+
+      async function saveStoreEdit() {
+        els.editError.classList.remove('visible');
+        const newName = els.editName.value.trim();
+        if (!newName) {
+          els.editErrorText.textContent = 'Nama toko wajib diisi.';
+          els.editError.classList.add('visible');
+          return;
+        }
+
+        const originalHTML = els.editSave.innerHTML;
+        els.editSave.disabled = true;
+        els.editSave.innerHTML = '<span class="spinner"></span> Menyimpan…';
+
+        try {
+          // Cek nama duplikat (kalau berubah)
+          if (newName !== store.nama) {
+            const existing = await App.findStoreByName(newName);
+            if (existing && existing.id !== store.id) {
+              els.editErrorText.textContent = 'Toko dengan nama "' + newName + '" sudah ada.';
+              els.editError.classList.add('visible');
+              return;
+            }
+          }
+          const updated = await App.updateStore(store.id, {
+            nama: newName,
+            url_shopee: els.editUrl.value.trim() || null,
+            catatan: els.editCatatan.value.trim() || null,
+          });
+          store = updated;
+          els.storeName.textContent = store.nama;
+          document.title = store.nama + ' — Ichibot Tracker';
+          if (store.url_shopee) {
+            els.storeUrl.href = store.url_shopee;
+            els.storeUrlWrap.style.display = '';
+          } else {
+            els.storeUrlWrap.style.display = 'none';
+          }
+          els.storeCatatan.textContent = store.catatan ? '· ' + store.catatan : '';
+          els.btnParseBaru.href = 'index.html?store=' + encodeURIComponent(store.nama);
+          els.btnParseEmpty.href = els.btnParseBaru.href;
+          closeEditModal();
+        } catch (err) {
+          els.editErrorText.textContent = 'Gagal: ' + err.message;
+          els.editError.classList.add('visible');
+        } finally {
+          els.editSave.disabled = false;
+          els.editSave.innerHTML = originalHTML;
+        }
+      }
+
+      async function confirmDeleteStore() {
+        const totalSnap = parseRuns.length;
+        const msg = totalSnap > 0
+          ? 'Hapus toko "' + store.nama + '" dan ' + totalSnap + ' snapshot-nya?\nTidak bisa di-undo.'
+          : 'Hapus toko "' + store.nama + '"?';
+        if (!confirm(msg)) return;
+        try {
+          await App.deleteStore(store.id);
+          window.location.replace('stores.html');
+        } catch (err) {
+          alert('Gagal hapus: ' + err.message);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

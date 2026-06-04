@@ -13,8 +13,8 @@ Web app untuk track produk kompetitor Shopee + mapping ke catalog Ichibot Store 
 |---|---|---|
 | **Fase 1** | Auth + simpan parsing kompetitor ke DB | ✅ **Selesai** |
 | **Fase 3** | Import & browse catalog Ichibot (XLSX) | ✅ **Selesai** |
-| **Fase 2** | Dashboard per toko (Top 50 + history) | 🚧 **Next** |
-| **Fase 4** | Matching UI (kompetitor ↔ Ichibot) | ⏳ Pending |
+| **Fase 2** | Dashboard per toko (Top 50 + history) | ✅ **Selesai** |
+| **Fase 4** | Matching UI (kompetitor ↔ Ichibot) | 🚧 **Next** |
 | **Fase 5** | Dashboard prioritas Ichibot (summary) | ⏳ Pending |
 
 > Note: Fase 3 dikerjakan duluan supaya begitu Fase 2 selesai (Top 50 view), tombol "Match" langsung berfungsi tanpa nunggu Fase 3 import dulu.
@@ -102,14 +102,21 @@ Re-import same XLSX → upsert by `external_id` (row dengan ID sama akan ke-upda
 
 ---
 
-## 🚧 Fase 2 — Dashboard per Toko (next)
+## ✅ Fase 2 — Dashboard per Toko (selesai)
 
-**Yang akan dibikin:**
-- `store.html?id=<uuid>` — dashboard per toko kompetitor
-- Top 50 produk by omset 30hr DESC
-- Pilih snapshot (default: terbaru)
-- Compare snapshot lama vs baru (trend omset, produk yg masuk/keluar top 50)
-- Tombol "Match" per baris → buka modal Ichibot matcher (depends on Fase 3 & 4)
+**Yang berfungsi:**
+- Halaman `/store.html?id=<uuid>` — auth-gated dashboard per toko
+- Header: nama toko, URL Shopee, catatan, tombol **+ Parse Snapshot Baru** (link
+  ke parser dengan store pre-filled), **Edit**, **Hapus**
+- Snapshot picker dropdown (default: terbaru) + delta vs snapshot sebelumnya
+  (perubahan aktif, omset)
+- Stats grid 4 box: total produk, aktif, total omset 30hr, dead stock
+- Top 50 table sorted by `omset_30hari DESC`, dead stock otomatis exclude
+  (rank, nama, harga, omset, terjual, trend, rating, **Match status** placeholder)
+- History snapshot list dengan tombol Lihat / Hapus per row
+- Modal edit toko (nama unique check)
+- Confirm dialog untuk hapus snapshot & hapus toko (cascade)
+- Klik card di `/stores.html` → langsung ke dashboard ini
 
 ---
 
