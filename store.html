@@ -446,17 +446,8 @@
       }
 
       function paretoSlice(products) {
-        const total = products.reduce((s, p) => s + (p.omset_30hari || 0), 0);
-        if (total === 0) return products;
-        const threshold = total * 0.8;
-        let cum = 0;
-        const result = [];
-        for (const p of products) {
-          result.push(p);
-          cum += (p.omset_30hari || 0);
-          if (cum >= threshold) break;
-        }
-        return result;
+        const count = Math.max(1, Math.ceil(products.length * 0.2));
+        return products.slice(0, count);
       }
 
       async function renderTop50(run) {
