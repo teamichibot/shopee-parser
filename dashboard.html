@@ -117,6 +117,16 @@
         </div>
       </div>
       
+      <!-- Pagination -->
+      <div class="pagination" id="pagination" style="display: none;">
+        <span class="pagination-info" id="pagination-info"></span>
+        <div class="pagination-controls">
+          <button class="pagination-btn" id="btn-prev" type="button">← Prev</button>
+          <span id="pagination-pages" style="font-size:0.78rem; color:var(--text-secondary); padding: 0 8px; align-self:center;"></span>
+          <button class="pagination-btn" id="btn-next" type="button">Next →</button>
+        </div>
+      </div>
+
       <!-- Empty state -->
       <div id="empty-state" class="empty-state" style="display: none; border-top: none; border-radius: 0 0 var(--radius) var(--radius);">
         <p>Tidak ada produk yang cocok dengan filter pencarian.</p>
@@ -157,6 +167,8 @@
 
       let rawData = [];
       let filteredData = [];
+      let currentPage = 1;
+      const PAGE_SIZE = 50;
 
       try {
         rawData = await App.getDashboardSummary();
@@ -208,7 +220,8 @@
           return true;
         });
 
-        renderTable(filteredData);
+        currentPage = 1;
+        renderTable();
       }
 
       function getBadgeHTML(rec) {
@@ -241,15 +254,23 @@
         return html;
       }
 
-      function renderTable(data) {
-        if (data.length === 0) {
+      function renderTable() {
+        const paginationEl = document.getElementById('pagination');
+
+        if (filteredData.length === 0) {
           els.tableBody.innerHTML = '';
           els.emptyState.style.display = 'block';
+          paginationEl.style.display = 'none';
           return;
         }
 
+        const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
+        currentPage = Math.min(currentPage, totalPages);
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageData = filteredData.slice(start, start + PAGE_SIZE);
+
         els.emptyState.style.display = 'none';
-        els.tableBody.innerHTML = data.map(p => {
+        els.tableBody.innerHTML = pageData.map(p => {
           const rank = p.avg_rank != null ? p.avg_rank.toFixed(1).replace('.', ',') : '—';
           return `
             <tr>
@@ -265,6 +286,15 @@
             </tr>
           `;
         }).join('');
+
+        const endRow = Math.min(start + PAGE_SIZE, filteredData.length);
+        document.getElementById('pagination-info').textContent =
+          `${start + 1}–${endRow} dari ${App.formatAngka(filteredData.length)} produk`;
+        document.getElementById('pagination-pages').textContent =
+          `Hal. ${currentPage} / ${totalPages}`;
+        document.getElementById('btn-prev').disabled = currentPage <= 1;
+        document.getElementById('btn-next').disabled = currentPage >= totalPages;
+        paginationEl.style.display = filteredData.length > PAGE_SIZE ? 'flex' : 'none';
       }
 
       // Events
@@ -275,6 +305,14 @@
       });
 
       els.filterRec.addEventListener('change', applyFilters);
+
+      document.getElementById('btn-prev').addEventListener('click', () => {
+        if (currentPage > 1) { currentPage--; renderTable(); window.scrollTo(0, 0); }
+      });
+      document.getElementById('btn-next').addEventListener('click', () => {
+        const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
+        if (currentPage < totalPages) { currentPage++; renderTable(); window.scrollTo(0, 0); }
+      });
 
       els.btnExport.addEventListener('click', () => {
         if (typeof XLSX === 'undefined') {
