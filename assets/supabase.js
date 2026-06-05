@@ -520,7 +520,7 @@
     const runIds = stores.map(s => s.latest_parse?.id).filter(Boolean);
     if (runIds.length === 0) return [];
 
-    // 2. Ambil top 50 produk kompetitor dari setiap parse run
+    // 2. Ambil produk kompetitor (aktif) dari setiap parse run
     let compProducts = [];
     const BATCH = 10;
     for (let i = 0; i < runIds.length; i += BATCH) {
@@ -535,16 +535,30 @@
       compProducts = compProducts.concat(data || []);
     }
 
-    // Process top 50 per store to get rank
+    // Kelompokkan per run, lalu potong pakai prinsip Pareto (80% omset kumulatif)
     const productsByRun = {};
     compProducts.forEach(p => {
       if (!productsByRun[p.parse_run_id]) productsByRun[p.parse_run_id] = [];
       productsByRun[p.parse_run_id].push(p);
     });
 
-    const top50ByRun = {};
+    function paretoSlice(products) {
+      const total = products.reduce((s, p) => s + (p.omset_30hari || 0), 0);
+      if (total === 0) return products;
+      const threshold = total * 0.8;
+      let cum = 0;
+      const result = [];
+      for (const p of products) {
+        result.push(p);
+        cum += (p.omset_30hari || 0);
+        if (cum >= threshold) break;
+      }
+      return result;
+    }
+
+    const paretoByRun = {};
     Object.keys(productsByRun).forEach(runId => {
-      top50ByRun[runId] = productsByRun[runId].slice(0, 50);
+      paretoByRun[runId] = paretoSlice(productsByRun[runId]);
     });
 
     // 3. Ambil semua product_matches yang matched
@@ -589,11 +603,11 @@
     });
 
     // 5. Agregasi
-    Object.keys(top50ByRun).forEach(runId => {
-      const top50 = top50ByRun[runId];
+    Object.keys(paretoByRun).forEach(runId => {
+      const top50 = paretoByRun[runId];
       // Supaya unique per toko (kalau ada produk sama di 1 toko)
       const matchedIchibotThisRun = new Set();
-      
+
       top50.forEach((p, index) => {
         const norm = normalizeName(p.nama_produk);
         const ichibotId = mapNameToIchibot[norm];
