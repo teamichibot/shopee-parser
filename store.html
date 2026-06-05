@@ -69,7 +69,7 @@
         <div class="stats-grid" id="stats-grid"></div>
 
         <!-- Top 50 table -->
-        <div class="section-title">Top 50 Produk by Omset 30 Hari</div>
+        <div class="section-title" id="top50-title">Produk by Omset 30 Hari</div>
         <div class="ichibot-table-wrapper">
           <div id="top50-loading" style="padding: 32px; text-align: center; color: var(--text-muted);">
             <span class="spinner"></span> Memuat produk…
@@ -445,18 +445,33 @@
         }
       }
 
+      function paretoSlice(products) {
+        const total = products.reduce((s, p) => s + (p.omset_30hari || 0), 0);
+        if (total === 0) return products;
+        const threshold = total * 0.8;
+        let cum = 0;
+        const result = [];
+        for (const p of products) {
+          result.push(p);
+          cum += (p.omset_30hari || 0);
+          if (cum >= threshold) break;
+        }
+        return result;
+      }
+
       async function renderTop50(run) {
         els.top50Loading.style.display = '';
         els.top50Empty.style.display = 'none';
         els.top50Container.style.display = 'none';
 
         try {
-          const { data } = await App.listCompetitorProducts(run.id, {
-            limit: 50,
+          const { data: allData } = await App.listCompetitorProducts(run.id, {
+            limit: 2000,
             offset: 0,
             orderBy: 'omset_30hari',
             dropDeadStock: true,
           });
+          const data = paretoSlice(allData);
           els.top50Loading.style.display = 'none';
 
           if (data.length === 0) {
@@ -464,8 +479,11 @@
             return;
           }
 
+          document.getElementById('top50-title').textContent =
+            `Top ${data.length} Produk by Omset 30 Hari (Pareto 80%)`;
+
           els.top50Container.style.display = '';
-          
+
           // Fetch existing matches
           const names = data.map(p => p.nama_produk);
           let matchMap = {};
