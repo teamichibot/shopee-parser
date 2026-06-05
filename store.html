@@ -541,7 +541,7 @@
         const norm = String(namaProduk).trim().toLowerCase();
         const m = matchMap[norm];
 
-        if (m && m.status === 'matched' && m.ichibot_products && m.ichibot_products.harga_diskon != null) {
+        if (m && m.status === 'matched' && m.ichibot_products && m.ichibot_products.harga_diskon > 0) {
           const ichiPrice = m.ichibot_products.harga_diskon;
           const diff = ichiPrice - compPrice;
           

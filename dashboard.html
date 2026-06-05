@@ -232,8 +232,8 @@
       }
 
       function renderHargaCell(p) {
-        const ichiPrice = p.harga_ichibot;
-        const kompPrice = p.min_harga_kompetitor;
+        const ichiPrice = (p.harga_ichibot != null && p.harga_ichibot > 0) ? p.harga_ichibot : null;
+        const kompPrice = (p.min_harga_kompetitor != null && p.min_harga_kompetitor > 0) ? p.min_harga_kompetitor : null;
 
         let html = `<div style="color:var(--text);">${App.formatRupiah(ichiPrice)}</div>`;
 
