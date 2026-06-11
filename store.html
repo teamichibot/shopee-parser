@@ -578,21 +578,16 @@
         const m = matchMap[norm];
 
         if (m) {
-          if (m.status === 'no_ichibot_equivalent') {
-            return `
-              <div class="match-cell-content">
-                <span class="match-badge none">Tidak Ada</span>
-                <button class="btn-mini btn-match-trigger" type="button">Edit</button>
-              </div>`;
-          } else if (m.status === 'matched' && m.ichibot_products) {
-            return `
-              <div class="match-cell-content">
-                <span class="match-badge matched" title="${App.escapeHTML(m.ichibot_products.nama_produk)}">${App.escapeHTML(m.ichibot_products.sku || 'Matched')}</span>
-                <button class="btn-mini btn-match-unmatch" type="button" style="color:var(--error);border-color:var(--error);">Unmatch</button>
-              </div>`;
-          }
+          const badge = m.status === 'matched' && m.ichibot_products
+            ? `<span class="match-badge matched" title="${App.escapeHTML(m.ichibot_products.nama_produk)}">${App.escapeHTML(m.ichibot_products.sku || 'Matched')}</span>`
+            : `<span class="match-badge none">Tidak Ada</span>`;
+          return `
+            <div class="match-cell-content">
+              ${badge}
+              <button class="btn-mini btn-match-unmatch" type="button" style="color:var(--error);border-color:var(--error);">Unmatch</button>
+            </div>`;
         }
-        
+
         return `
           <div class="match-cell-content">
             <span class="match-badge">Belum</span>
